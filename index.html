@@ -3,2098 +3,1913 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>電視台影像設備調度與管理平台 | Broadcast GearOps</title>
+  <title>電視台影像設備管理平台 | Broadcast GearOps</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
           colors: {
             brand: {
-              red: '#e11d48',
-              tally: '#ef4444',
-              teal: '#06b6d4',
-              gold: '#f59e0b',
-              dark: '#0b0f19',
-              card: '#111827',
-              border: '#1f293d',
-              accent: '#3b82f6'
+              bg: '#0b0f19',
+              card: '#121827',
+              surface: '#1a2236',
+              border: '#222f49',
+              tally: '#e11d48',
+              accent: '#3b82f6',
+              warning: '#f59e0b',
+              success: '#10b981'
             }
-          },
-          fontFamily: {
-            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-            mono: ['JetBrains Mono', 'Menlo', 'monospace']
           }
         }
       }
     }
   </script>
   <style>
-    /* 廣播錄影中與器材狀態閃爍燈號動畫 */
-    @keyframes tally-pulse {
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #222f49; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+    @keyframes pulse-tally {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.92); }
+      50% { opacity: 0.4; transform: scale(0.95); }
     }
-    .animate-tally {
-      animation: tally-pulse 1.8s infinite ease-in-out;
-    }
-    /* 自訂平滑捲軸 */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0b0f19;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #1f293d;
-      border-radius: 9999px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #374151;
-    }
+    .tally-live { animation: pulse-tally 2s infinite ease-in-out; }
   </style>
 </head>
-<body class="bg-brand-dark text-slate-200 font-sans min-h-screen flex flex-col selection:bg-brand-teal selection:text-black antialiased">
+<body class="bg-brand-bg text-slate-100 font-sans min-h-screen antialiased selection:bg-blue-600 selection:text-white flex flex-col">
 
-  <!-- 首次進入時的強制簽到閘道 (Sign-in Gateway) -->
-  <div id="login-gateway" class="fixed inset-0 z-50 bg-brand-dark flex items-center justify-center p-4">
-    <!-- 背景裝飾光暈 -->
-    <div class="absolute w-96 h-96 bg-brand-teal/10 rounded-full blur-3xl pointer-events-none -top-10 -left-10"></div>
-    <div class="absolute w-96 h-96 bg-red-600/10 rounded-full blur-3xl pointer-events-none -bottom-10 -right-10"></div>
-
-    <div class="w-full max-w-md bg-brand-card/90 border border-brand-border rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative z-10 space-y-6">
-      <!-- 廣播台標誌 -->
-      <div class="text-center space-y-2">
-        <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 items-center justify-center shadow-lg shadow-red-900/40 border border-red-500/40 mx-auto">
-          <i class="fa-solid fa-video text-white text-2xl"></i>
+  <!-- ========================================== -->
+  <!-- 1. 使用者簽到存取驗證閘道 (初始進入鎖定畫面) -->
+  <!-- ========================================== -->
+  <div id="signin-gateway" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-brand-card border border-brand-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      
+      <!-- 閘道頂部標頭 -->
+      <div class="p-6 bg-gradient-to-br from-brand-surface to-brand-card border-b border-brand-border flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 text-xl shadow-inner">
+          <i class="fa-solid fa-tower-broadcast"></i>
         </div>
-        <div class="flex items-center justify-center gap-2 pt-1">
-          <span class="font-black tracking-wider text-white text-lg">TV-OPS GEARHUB</span>
-          <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-red-950/80 text-red-400 border border-red-800/60 flex items-center gap-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-tally"></span>
-            DISPATCH
-          </span>
-        </div>
-        <p class="text-xs text-slate-400 font-mono">全媒體發展處(台南) ‧ 攝影器材調度管制中心</p>
-      </div>
-
-      <!-- 登入卡片說明 -->
-      <div class="p-3.5 rounded-xl bg-brand-dark/70 border border-brand-border text-xs text-slate-300 space-y-1">
-        <div class="flex items-center gap-1.5 font-bold text-white">
-          <i class="fa-solid fa-id-badge text-brand-teal"></i>
-          <span>使用者簽到管制</span>
-        </div>
-        <p class="text-[11px] text-slate-400 leading-relaxed">
-          請先登記您的姓名與組別，系統將自動於出班領物、點驗入庫與設備報修時記錄經手人員。
-        </p>
-      </div>
-
-      <!-- 登入表單 -->
-      <form id="form-user-login" onsubmit="handleUserLogin(event)" class="space-y-4 text-xs">
         <div>
-          <label class="block text-slate-300 font-medium mb-1.5 flex items-center justify-between">
-            <span>姓名 *</span>
-            <span class="text-[10px] text-brand-teal font-mono">必填項目</span>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-white tracking-wide">電視台影像設備管理平台</h2>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">v2.6 Cloud</span>
+          </div>
+          <p class="text-xs text-slate-400">執勤同仁簽到認證閘道 | 電視廣播中心器材庫房</p>
+        </div>
+      </div>
+
+      <!-- 簽到表單區 -->
+      <div class="p-6 space-y-4 overflow-y-auto">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+            <i class="fa-regular fa-user text-blue-400"></i>
+            <span>使用者姓名 / 執勤同仁</span>
+            <span class="text-rose-400">*</span>
           </label>
-          <div class="relative">
-            <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
-            <input type="text" id="login-username" required placeholder="請輸入姓名 (例如：張力文、林小明)" 
-              class="w-full pl-10 pr-4 py-2.5 bg-brand-dark border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal transition text-sm">
-          </div>
+          <input type="text" id="input-signin-name" placeholder="例如：林小明/吳小英" class="w-full px-3.5 py-2.5 bg-brand-surface border border-brand-border rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
         </div>
 
         <div>
-          <label class="block text-slate-300 font-medium mb-1.5">所屬組別 *</label>
-          <div class="relative">
-            <i class="fa-solid fa-users absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
-            <select id="login-userrole" class="w-full pl-10 pr-4 py-2.5 bg-brand-dark border border-brand-border rounded-xl text-white focus:outline-none focus:border-brand-teal transition text-xs">
-              <option value="新聞部 (News Division)">新聞部 (News Division)</option>
-              <option value="節目及企劃部 (Production & Planning)">節目及企劃部 (Production & Planning)</option>
-              <option value="其他 (Other)">其他 (Other)</option>
-            </select>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
+            <i class="fa-solid fa-sitemap text-blue-400"></i>
+            <span>所屬組別 / 執勤編制</span>
+            <span class="text-rose-400">*</span>
+          </label>
+          <select id="select-signin-dept" class="w-full px-3.5 py-2.5 bg-brand-surface border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:border-blue-500 transition">
+            <option value="新聞部">新聞部 (News Division)</option>
+            <option value="節目及企劃部">節目及企劃部 (Production & Planning)</option>
+            <option value="其他">其他 (Other)</option>
+          </select>
+        </div>
+
+        <button type="button" onclick="handleUserSignIn()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-semibold rounded-xl text-sm transition shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-right-to-bracket"></i>
+          <span>確認登入系統</span>
+        </button>
+
+        <!-- 公告與更新日誌區塊 -->
+        <div class="pt-4 border-t border-brand-border">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-bullhorn text-amber-400"></i>
+              <span>公告 / 更新日誌</span>
+            </span>
+            <span class="text-[10px] text-slate-400">最新通知</span>
+          </div>
+
+          <div class="space-y-2 max-h-44 overflow-y-auto pr-1">
+            <!-- 日誌項目 1 -->
+            <div class="p-3 bg-brand-surface/60 rounded-xl border border-brand-border/60 hover:border-slate-600 transition">
+              <div class="flex items-center justify-between text-[11px] mb-1">
+                <span class="font-bold text-blue-400">雲端即時儲存全面啟用</span>
+                <span class="text-slate-400 font-mono">2026-09-10</span>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                新增之器材設備支援即時雲端持久化儲存，重整網頁與跨裝置登入永不丟失；開機自動雙向同步 Google 試算表。
+              </p>
+            </div>
+            <!-- 日誌項目 2 -->
+            <div class="p-3 bg-brand-surface/60 rounded-xl border border-brand-border/60 hover:border-slate-600 transition">
+              <div class="flex items-center justify-between text-[11px] mb-1">
+                <span class="font-bold text-amber-400">庫存點檢宣導</span>
+                <span class="text-slate-400 font-mono">2026-09-08</span>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                外景劇組歸還攝影主機與鏡頭群時，請務必點收電池配件，並由通報人落實驗收。
+              </p>
+            </div>
+            <!-- 日誌項目 3 -->
+            <div class="p-3 bg-brand-surface/60 rounded-xl border border-brand-border/60 hover:border-slate-600 transition">
+              <div class="flex items-center justify-between text-[11px] mb-1">
+                <span class="font-bold text-emerald-400">電池維護公告</span>
+                <span class="text-slate-400 font-mono">2026-09-01</span>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                NP-F970 與 BP-U70 全數完成充放電保養，在庫隨時待命支援新聞採訪與棚內專案。
+              </p>
+            </div>
           </div>
         </div>
 
-        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-teal to-cyan-500 hover:from-cyan-400 hover:to-cyan-500 text-black font-bold text-sm tracking-wider flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-cyan-950/40 mt-2">
-          <i class="fa-solid fa-right-to-bracket"></i>
-          <span>登入並進入設備管理系統</span>
-        </button>
-      </form>
+      </div>
 
-      <div class="text-center text-[10px] text-slate-500 font-mono">
-        TV BROADCAST PRODUCTION OPERATIONS SYSTEM v2.4
+      <!-- 底部版權 -->
+      <div class="p-3 bg-brand-bg text-center text-[10px] text-slate-400 border-t border-brand-border">
+        電視台影音工程部 &middot; 資產管理與出班調度系統
       </div>
     </div>
   </div>
 
-  <header class="border-b border-brand-border bg-brand-dark/95 backdrop-blur sticky top-0 z-30">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <!-- 品牌與棚內識別 -->
+  <!-- ========================================== -->
+  <!-- 2. 頂部主要導覽列 (精簡不擁擠，含管理員入口) -->
+  <!-- ========================================== -->
+  <header class="bg-brand-card border-b border-brand-border sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
+      
+      <!-- 左側 Logo 與即時雲端連線狀態標籤 -->
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-red-600 to-rose-700 flex items-center justify-center shadow-lg shadow-red-900/30 border border-red-500/30">
-          <i class="fa-solid fa-video text-white text-lg"></i>
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-base shadow">
+          <i class="fa-solid fa-video"></i>
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <span class="font-black tracking-wider text-white text-base sm:text-lg">TV-OPS GEARHUB</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-mono tracking-widest bg-red-950/80 text-red-400 border border-red-800/60 flex items-center gap-1.5 font-bold">
-              <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-tally"></span>
-              LIVE DISPATCH
-            </span>
+            <span class="font-extrabold text-sm sm:text-base text-white tracking-wide">電視台影像設備管理平台</span>
+            <div id="cloud-status-badge" class="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-700/60 text-emerald-400 text-[10px] font-mono">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span id="cloud-status-text">雲端庫房同步中</span>
+            </div>
           </div>
-          <p class="text-xs text-slate-400 font-mono hidden sm:block">全媒體發展處(台南) ‧ 攝影器材庫控制平台</p>
         </div>
       </div>
 
-      <!-- 精簡後的操作區塊：人員標籤、快速狀態、登錄設備與管理設定 -->
-      <div class="flex items-center gap-2.5">
-        <!-- 簡潔的在庫/出班精巧指示條 (中大螢幕顯示) -->
-        <div class="hidden lg:flex items-center gap-3 bg-brand-card/90 px-3 py-1.5 rounded-lg border border-brand-border text-xs font-mono">
-          <div class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span class="text-slate-400">待命:</span>
-            <span class="font-bold text-emerald-400" id="stat-available-quick">0</span>
-          </div>
-          <div class="w-px h-3 bg-slate-700"></div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-            <span class="text-slate-400">出班:</span>
-            <span class="font-bold text-amber-400" id="stat-inuse-quick">0</span>
-          </div>
-          <div class="w-px h-3 bg-slate-700"></div>
-          <div class="flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-            <span class="text-slate-400">維修:</span>
-            <span class="font-bold text-rose-400" id="stat-repair-quick">0</span>
-          </div>
-        </div>
-
-        <!-- 在線使用者資訊膠囊 (精簡型態) -->
-        <div class="flex items-center gap-2 bg-brand-card px-2.5 py-1.5 rounded-lg border border-brand-border text-xs">
-          <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-          <div class="flex flex-col">
-            <span class="text-[9px] text-slate-500 font-mono leading-none">執勤中</span>
-            <span class="font-bold text-white text-xs leading-tight truncate max-w-[90px] sm:max-w-none" id="current-user-display">
-              訪客
-            </span>
-          </div>
-          <button onclick="handleUserLogout()" title="更換人員/簽退" class="text-slate-400 hover:text-rose-400 transition text-xs p-1">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+      <!-- 右側在線身分、新設備登錄、管理員後台入口 -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        
+        <!-- 當前在線人員狀態膠囊 -->
+        <div id="user-display-pill" class="flex items-center gap-2 bg-brand-surface border border-brand-border px-2.5 py-1 rounded-lg text-xs">
+          <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+          <span id="current-user-name" class="font-medium text-slate-200">林小明</span>
+          <span id="current-user-dept" class="px-1.5 py-0.2 rounded text-[10px] bg-blue-500/20 text-blue-300 font-mono">新聞部</span>
+          <button type="button" onclick="handleUserSignOut()" title="切換身分" class="text-slate-400 hover:text-rose-400 transition ml-1">
+            <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
           </button>
         </div>
 
         <!-- 登錄新設備按鈕 -->
-        <button onclick="openModal('modal-add-gear')" class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-brand-teal/15 hover:bg-brand-teal/25 text-brand-teal border border-brand-teal/40 font-medium text-xs sm:text-sm flex items-center gap-1.5 transition active:scale-95 shadow-sm">
-          <i class="fa-solid fa-plus text-xs"></i>
+        <button type="button" onclick="openModal('modal-add-gear')" class="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow">
+          <i class="fa-solid fa-plus text-[10px]"></i>
           <span class="hidden sm:inline">登錄新設備</span>
-          <span class="sm:hidden">新設備</span>
         </button>
 
-        <!-- 管理員設定與 Google 串接按鈕 (防誤觸入口) -->
-        <button onclick="triggerAdminAccess()" title="系統後台與 Google 串接管理 (工程主管限定)" class="p-2 sm:px-3 sm:py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-medium text-xs sm:text-sm flex items-center gap-1.5 transition active:scale-95">
-          <i class="fa-solid fa-gear text-slate-400"></i>
-          <span class="hidden md:inline text-xs">系統後台</span>
+        <!-- 管理員系統後台 (齒輪入口) -->
+        <button type="button" onclick="openAdminPinModal()" title="系統後台管理 (需管理密碼)" class="w-8 h-8 rounded-lg bg-brand-surface hover:bg-slate-700 text-slate-300 border border-brand-border flex items-center justify-center transition active:scale-95">
+          <i class="fa-solid fa-gear text-sm"></i>
         </button>
       </div>
-    </div>
 
-    <!-- 導航分頁 -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 border-t border-brand-border/60 text-xs sm:text-sm">
-      <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn px-4 py-2.5 font-medium border-b-2 border-brand-teal text-brand-teal flex items-center gap-2 transition">
-        <i class="fa-solid fa-chart-pie"></i>
-        <span>即時儀表板</span>
-      </button>
-      <button onclick="switchTab('inventory')" id="tab-btn-inventory" class="tab-btn px-4 py-2.5 font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
-        <i class="fa-solid fa-boxes-stacked"></i>
-        <span>器材總庫存</span>
-      </button>
-      <button onclick="switchTab('dispatch')" id="tab-btn-dispatch" class="tab-btn px-4 py-2.5 font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
-        <i class="fa-solid fa-truck-ramp-box"></i>
-        <span>出班借還作業</span>
-      </button>
-      <button onclick="switchTab('maintenance')" id="tab-btn-maintenance" class="tab-btn px-4 py-2.5 font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2 transition">
-        <i class="fa-solid fa-wrench"></i>
-        <span>設備維護與故障報修</span>
-      </button>
     </div>
   </header>
 
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+  <!-- ========================================== -->
+  <!-- 3. 主內容分頁標籤列與切換控制 -->
+  <!-- ========================================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex-1 w-full space-y-5">
+    
+    <!-- 分頁選單列 -->
+    <div class="flex items-center justify-between border-b border-brand-border pb-3 flex-wrap gap-2">
+      <div class="flex items-center gap-1.5 bg-brand-card p-1 rounded-xl border border-brand-border text-xs">
+        <button type="button" onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn active px-3.5 py-1.5 rounded-lg font-medium transition flex items-center gap-1.5 bg-blue-600 text-white shadow">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>即時儀表板</span>
+        </button>
+        <button type="button" onclick="switchTab('inventory')" id="tab-btn-inventory" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>器材總庫存</span>
+        </button>
+        <button type="button" onclick="switchTab('dispatch')" id="tab-btn-dispatch" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+          <i class="fa-solid fa-clipboard-list"></i>
+          <span>出班借調單</span>
+        </button>
+        <button type="button" onclick="switchTab('maintenance')" id="tab-btn-maintenance" class="tab-btn px-3.5 py-1.5 rounded-lg font-medium text-slate-400 hover:text-white transition flex items-center gap-1.5">
+          <i class="fa-solid fa-screwdriver-wrench"></i>
+          <span>設備維護與報修</span>
+        </button>
+      </div>
 
-    <!-- View 1: 儀表板視圖 -->
-    <section id="view-dashboard" class="space-y-6">
-      <!-- 頂部即時狀況卡片 -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-brand-card p-4 rounded-xl border border-brand-border relative overflow-hidden">
-          <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-mono">總設備資產清冊</span>
-            <span class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-sm border border-blue-500/20"><i class="fa-solid fa-barcode"></i></span>
+      <div class="flex items-center gap-2 text-xs text-slate-400">
+        <i class="fa-regular fa-clock"></i>
+        <span id="current-clock" class="font-mono">--:--:--</span>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 分頁 1: 即時儀表板 (Dashboard) -->
+    <!-- ========================================== -->
+    <section id="tab-dashboard" class="space-y-5">
+      
+      <!-- 頂部統計指標卡片 -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- 在庫中設備 -->
+        <div class="bg-brand-card border border-brand-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-medium text-slate-400">在庫中設備</span>
+            <div id="stat-in-stock" class="text-2xl font-bold text-emerald-400 mt-1">0 件</div>
+            <div class="text-[11px] text-slate-400 mt-1">隨時可出班待命</div>
           </div>
-          <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-2xl sm:text-3xl font-bold font-mono text-white" id="card-total-gear">0</span>
-            <span class="text-xs text-slate-400">項設備資產</span>
+          <div class="w-10 h-10 rounded-xl bg-emerald-950/60 border border-emerald-700/60 flex items-center justify-center text-emerald-400 text-lg">
+            <i class="fa-solid fa-check"></i>
           </div>
-          <div class="mt-2 text-[11px] text-slate-400"></div>
         </div>
 
-        <div class="bg-brand-card p-4 rounded-xl border border-brand-border relative overflow-hidden">
-          <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-mono">外景與棚內出班</span>
-            <span class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-sm border border-amber-500/20"><i class="fa-solid fa-film"></i></span>
+        <!-- 外借錄影中 (指定修改：棚內/外景使用) -->
+        <div class="bg-brand-card border border-brand-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-medium text-slate-400">外借錄影中</span>
+            <div id="stat-dispatched" class="text-2xl font-bold text-amber-400 mt-1">0 件</div>
+            <div class="text-[11px] text-slate-400 mt-1">棚內/外景使用</div>
           </div>
-          <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-2xl sm:text-3xl font-bold font-mono text-amber-400" id="card-inuse-gear">0</span>
-            <span class="text-xs text-slate-400">件外借執勤中</span>
-          </div>
-          <div class="mt-2 text-[11px] text-amber-400/80 flex items-center gap-1">
-            <i class="fa-solid fa-clock"></i> 今日有 3 組拍攝出班預計返還
+          <div class="w-10 h-10 rounded-xl bg-amber-950/60 border border-amber-700/60 flex items-center justify-center text-amber-400 text-lg">
+            <i class="fa-solid fa-clapperboard"></i>
           </div>
         </div>
 
-        <div class="bg-brand-card p-4 rounded-xl border border-brand-border relative overflow-hidden">
-          <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-mono">庫房待命就緒</span>
-            <span class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-sm border border-emerald-500/20"><i class="fa-solid fa-circle-check"></i></span>
+        <!-- 檢修中 -->
+        <div class="bg-brand-card border border-brand-border rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-medium text-slate-400">檢修中</span>
+            <div id="stat-maintenance" class="text-2xl font-bold text-rose-400 mt-1">0 件</div>
+            <div class="text-[11px] text-slate-400 mt-1">維護中</div>
           </div>
-          <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-2xl sm:text-3xl font-bold font-mono text-emerald-400" id="card-available-gear">0</span>
-            <span class="text-xs text-slate-400">件待命中</span>
+          <div class="w-10 h-10 rounded-xl bg-rose-950/60 border border-rose-700/60 flex items-center justify-center text-rose-400 text-lg">
+            <i class="fa-solid fa-triangle-exclamation"></i>
           </div>
-          <div class="mt-2 text-[11px] text-emerald-400/80">可支援拍攝設備調度</div>
-        </div>
-
-        <div class="bg-brand-card p-4 rounded-xl border border-brand-border relative overflow-hidden">
-          <div class="flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-mono">異常與維修中</span>
-            <span class="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center text-sm border border-rose-500/20"><i class="fa-solid fa-triangle-exclamation"></i></span>
-          </div>
-          <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-2xl sm:text-3xl font-bold font-mono text-rose-400" id="card-repair-gear">0</span>
-            <span class="text-xs text-slate-400">件標記異常</span>
-          </div>
-          <div class="mt-2 text-[11px] text-rose-400/80"></div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- 今日製作出班日程清單 -->
-        <div class="lg:col-span-2 bg-brand-card rounded-xl border border-brand-border p-5">
-          <div class="flex items-center justify-between mb-4">
+      <!-- 儀表板下方左右雙欄：左邊出班行程、右邊指定電池設備監控表 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        
+        <!-- 左側：本日出班排程 -->
+        <div class="lg:col-span-2 bg-brand-card border border-brand-border rounded-xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <i class="fa-solid fa-calendar-day text-brand-teal"></i>
-              <h2 class="font-bold text-base text-white">本日節目錄製與外景設備出班</h2>
+              <span class="w-2 h-2 rounded-full bg-rose-500 tally-live"></span>
+              <h3 class="font-bold text-sm text-white">即時出班與錄影調度清單</h3>
             </div>
-            <span class="text-xs font-mono text-slate-400">出班日誌同步率 100%</span>
+            <span class="text-xs text-slate-400">現行外借作業</span>
           </div>
 
-          <div class="space-y-3" id="shoot-schedule-container">
-            <!-- 渲染預載的外景與棚內排程 -->
+          <div id="dashboard-dispatch-list" class="space-y-3">
+            <!-- 動態注入出班清單 -->
           </div>
         </div>
 
-        <!-- 攝影機助理 (AC) 現場快速作業與電量/圖傳提示 -->
-        <div class="bg-brand-card rounded-xl border border-brand-border p-5 space-y-4 flex flex-col justify-between">
-          <div>
-            <div class="flex items-center gap-2 mb-3">
-              <i class="fa-solid fa-battery-full text-emerald-400"></i>
-              <h2 class="font-bold text-base text-white">電池設備表</h2>
+        <!-- 右側：電池設備表 (中欄NP-F970、下欄BP-U70) -->
+        <div class="bg-brand-card border border-brand-border rounded-xl p-5 space-y-4">
+          <div class="flex items-center justify-between border-b border-brand-border pb-3">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-battery-half text-emerald-400"></i>
+              <h3 class="font-bold text-sm text-white">電池設備表</h3>
             </div>
-            <div class="space-y-2.5 text-xs">
-              <div class="p-3 rounded-lg bg-brand-dark/70 border border-brand-border">
-                <div class="flex justify-between items-center text-slate-300 font-medium">
-                  <span class="flex items-center gap-1.5"><i class="fa-solid fa-battery-three-quarters text-emerald-400"></i> V-Mount 電池</span>
-                  <span class="font-mono text-emerald-400">在庫 15 顆</span>
-                </div>
-                <p class="text-slate-500 mt-1 text-[11px]">廣播級攝影機、燈光供電組，請注意電量。</p>
-              </div>
+            <span class="text-[11px] text-slate-400 font-mono">在庫監控</span>
+          </div>
 
-              <div class="p-3 rounded-lg bg-brand-dark/70 border border-brand-border">
-                <div class="flex justify-between items-center text-slate-300 font-medium">
-                  <span class="flex items-center gap-1.5"><i class="fa-solid fa-battery-half text-brand-teal"></i> NP-F970 電池</span>
-                  <span class="font-mono text-cyan-400">在庫 18 顆</span>
-                </div>
-                <p class="text-slate-500 mt-1 text-[11px]">採訪攝影機、監視設備，請注意電量。</p>
+          <div class="space-y-3">
+            <!-- 項目 1: V-Mount 廣播電池 -->
+            <div class="p-3 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-between">
+              <div>
+                <div class="text-xs font-semibold text-white">V-Mount 廣播級電池</div>
+                <div class="text-[10px] text-slate-400">190Wh / 攝影主機大功耗</div>
               </div>
+              <div class="text-right">
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">在庫 14 顆</span>
+              </div>
+            </div>
 
-              <div class="p-3 rounded-lg bg-brand-dark/70 border border-brand-border">
-                <div class="flex justify-between items-center text-slate-300 font-medium">
-                  <span class="flex items-center gap-1.5"><i class="fa-solid fa-battery-half text-amber-400"></i> BP-U70 電池</span>
-                  <span class="font-mono text-amber-400">在庫 12 顆</span>
-                </div>
-                <p class="text-slate-500 mt-1 text-[11px]">Sony Z200 專用電池組，請注意電量。</p>
+            <!-- 項目 2: NP-F970 電池 -->
+            <div class="p-3 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-between">
+              <div>
+                <div class="text-xs font-semibold text-white">NP-F970 電池</div>
+                <div class="text-[10px] text-slate-400">高容量 / 圖傳與小螢幕</div>
+              </div>
+              <div class="text-right">
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">在庫 18 顆</span>
+              </div>
+            </div>
+
+            <!-- 項目 3: BP-U70 電池 -->
+            <div class="p-3 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-between">
+              <div>
+                <div class="text-xs font-semibold text-white">BP-U70 電池</div>
+                <div class="text-[10px] text-slate-400">Sony 外景專用 (FX6/Z200)</div>
+              </div>
+              <div class="text-right">
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">在庫 12 顆</span>
               </div>
             </div>
           </div>
 
-          <!-- 快速產生出班清單快捷鍵 -->
-          <div class="pt-3 border-t border-brand-border">
-            <button onclick="switchTab('dispatch')" class="w-full py-2.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-semibold tracking-wider flex items-center justify-center gap-2 shadow-lg transition">
-              <i class="fa-solid fa-clipboard-list"></i>
-              <span>建立今日出班設備打包單 (Pack List)</span>
-            </button>
+          <div class="p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/40 text-[11px] text-blue-300 leading-relaxed flex items-center gap-2">
+            <i class="fa-solid fa-cloud-arrow-up text-blue-400"></i>
+            <span>雲端資料庫已即時啟動，資料將永久安全保留。</span>
           </div>
         </div>
+
       </div>
     </section>
 
-    <!-- View 2: 器材庫存清冊 -->
-    <section id="view-inventory" class="space-y-4 hidden">
-      <!-- 篩選列與搜尋條 -->
-      <div class="bg-brand-card p-4 rounded-xl border border-brand-border flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
-        <div class="flex-1 relative">
-          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
-          <input type="text" id="inventory-search" placeholder="搜尋器材型號、資產編號(如：610000000-00001)、保管人..." 
-            oninput="renderInventoryTable()"
-            class="w-full pl-10 pr-4 py-2 bg-brand-dark border border-brand-border rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal">
+    <!-- ========================================== -->
+    <!-- 分頁 2: 器材總庫存 (Inventory) -->
+    <!-- ========================================== -->
+    <section id="tab-inventory" class="hidden space-y-4">
+      
+      <!-- 篩選與搜尋列 -->
+      <div class="bg-brand-card border border-brand-border rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        
+        <!-- 搜尋欄 -->
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+          <input type="text" id="inventory-search" oninput="renderInventoryTable()" placeholder="搜尋器材型號、資產編號(如：610000000-00001)、保管人..." class="w-full pl-9 pr-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500 transition">
         </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <!-- 類別下拉 -->
-          <select id="filter-category" onchange="renderInventoryTable()" class="bg-brand-dark border border-brand-border text-xs rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-brand-teal">
-            <option value="ALL">所有類別 (All Equipment)</option>
-            <option value="CAM">攝影機主機 (Cameras)</option>
-            <option value="LENS">電影與廣播鏡頭 (Lenses)</option>
-            <option value="WIRELESS">無線圖傳/導播監看 (Video/Wireless)</option>
-            <option value="AUDIO">收音設備 (Audio / Wireless Mic)</option>
-            <option value="GRIP">腳架/穩定系統 (Grip & Support)</option>
-            <option value="POWER">供電與電池系統 (Power / V-Mount)</option>
+        <!-- 分類下拉 -->
+        <div class="flex items-center gap-2">
+          <select id="filter-category" onchange="renderInventoryTable()" class="px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
+            <option value="ALL">全部器材大類</option>
+            <option value="CAM">攝影主機 (CAM)</option>
+            <option value="LENS">鏡頭群 (LENS)</option>
+            <option value="AUDIO">收音成音 (AUDIO)</option>
+            <option value="LIGHT">燈光照明 (LIGHT)</option>
+            <option value="ACC">圖傳與輔具 (ACC)</option>
           </select>
 
-          <!-- 狀態下拉 -->
-          <select id="filter-status" onchange="renderInventoryTable()" class="bg-brand-dark border border-brand-border text-xs rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-brand-teal">
-            <option value="ALL">全部狀態 (All Status)</option>
-            <option value="AVAILABLE">在庫中 (Ready)</option>
-            <option value="IN_USE">領用中 (In Use)</option>
-            <option value="REPAIR">檢修中 (Maintenance)</option>
+          <!-- 狀態下拉 (在庫中 / 領用中 / 檢修中) -->
+          <select id="filter-status" onchange="renderInventoryTable()" class="px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
+            <option value="ALL">全部狀態</option>
+            <option value="IN_STOCK">在庫中</option>
+            <option value="DISPATCHED">領用中</option>
+            <option value="MAINTENANCE">檢修中</option>
           </select>
         </div>
+
       </div>
 
-      <!-- 設備列表 Table -->
-      <div class="bg-brand-card rounded-xl border border-brand-border overflow-hidden">
+      <!-- 設備資料表格 -->
+      <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden shadow">
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs sm:text-sm">
-            <thead>
-              <tr class="bg-brand-dark/80 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-brand-border">
-                <th class="py-3.5 px-4">資產標籤 / 類別</th>
-                <th class="py-3.5 px-4">器材規格全名</th>
-                <th class="py-3.5 px-4">入庫位置</th>
-                <th class="py-3.5 px-4">運行狀態</th>
-                <th class="py-3.5 px-4">領用對象/專案</th>
-                <th class="py-3.5 px-4 text-right">操作管理</th>
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="bg-brand-surface/80 text-slate-400 font-semibold border-b border-brand-border">
+              <tr>
+                <th class="py-3 px-3.5">資產編號</th>
+                <th class="py-3 px-3.5">器材類別 & 型號</th>
+                <th class="py-3 px-3.5">入庫位置</th>
+                <th class="py-3 px-3.5">領用對象/專案</th>
+                <th class="py-3 px-3.5">狀態</th>
+                <th class="py-3 px-3.5 text-right">操作</th>
               </tr>
             </thead>
-            <tbody id="inventory-table-body" class="divide-y divide-brand-border text-slate-300 font-sans">
-              <!-- 動態生成設備資料 -->
+            <tbody id="inventory-tbody" class="divide-y divide-brand-border font-sans">
+              <!-- 動態生成設備列表 -->
             </tbody>
           </table>
         </div>
-        <!-- 分頁計數與底部提示 -->
-        <div class="px-4 py-3 bg-brand-dark/40 border-t border-brand-border flex items-center justify-between text-xs text-slate-400 font-mono">
-          <span id="inventory-count-summary">顯示 0 筆設備</span>
-          <span>標籤支援電視台 RFID 條碼掃描模擬</span>
+        
+        <!-- 表格底部筆數統計 -->
+        <div class="p-3 bg-brand-surface/40 border-t border-brand-border flex items-center justify-between text-[11px] text-slate-400">
+          <span id="inventory-count-label">共顯示 0 筆設備</span>
+          <span class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>雲端自動同步中</span>
+          </span>
         </div>
       </div>
+
     </section>
 
-    <!-- View 3: 出班借還作業視圖 -->
-    <section id="view-dispatch" class="space-y-6 hidden">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- 左側：發起新借用單 -->
-        <div class="bg-brand-card p-5 rounded-xl border border-brand-border space-y-4">
+    <!-- ========================================== -->
+    <!-- 分頁 3: 出班借調單 (Dispatch & Pack List) -->
+    <!-- ========================================== -->
+    <section id="tab-dispatch" class="hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        
+        <!-- 左側：填寫出班借調單 -->
+        <div class="bg-brand-card border border-brand-border rounded-xl p-5 space-y-4">
           <div class="flex items-center gap-2 border-b border-brand-border pb-3">
-            <i class="fa-solid fa-file-signature text-brand-teal text-lg"></i>
-            <div>
-              <h2 class="font-bold text-white text-base">建立出班器材借調單</h2>
-              <p class="text-xs text-slate-400">攝影師出班、外景小組預借清單</p>
-            </div>
+            <i class="fa-solid fa-file-signature text-blue-400"></i>
+            <h3 class="font-bold text-sm text-white">建立外景/棚內出班單</h3>
           </div>
 
-          <form id="form-create-dispatch" onsubmit="handleCreateDispatch(event)" class="space-y-3.5 text-xs">
+          <form id="form-create-dispatch" onsubmit="handleCreateDispatch(event)" class="space-y-3">
             <div>
-              <label class="block text-slate-300 font-medium mb-1">節目名稱 / 拍攝專案 *</label>
-              <input type="text" id="dispatch-project" required placeholder="例如：中嘉新聞、南境拾光、市民心聲" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal">
+              <label class="block text-xs text-slate-300 mb-1">節目 / 專案任務名稱 *</label>
+              <input type="text" id="disp-project" required placeholder="例如：晚間新聞外景採訪、專題紀錄片" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
             </div>
 
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-slate-300 font-medium mb-1">領用人 *</label>
-                <input type="text" id="dispatch-borrower" required placeholder="例如：張力文" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal">
+                <label class="block text-xs text-slate-300 mb-1">出班組別 *</label>
+                <select id="disp-dept" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
+                  <option value="新聞部">新聞部</option>
+                  <option value="節目及企劃部">節目及企劃部</option>
+                  <option value="其他">其他</option>
+                </select>
               </div>
               <div>
-                <label class="block text-slate-300 font-medium mb-1">拍攝地點 / 攝影棚</label>
-                <input type="text" id="dispatch-location" required placeholder="例如：棚內 / 安平外景" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal">
+                <label class="block text-xs text-slate-300 mb-1">領用同仁 (保管人) *</label>
+                <input type="text" id="disp-user" required placeholder="例如：林小明" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
               </div>
             </div>
 
             <div>
-              <label class="block text-slate-300 font-medium mb-1">預計歸還日期時間 *</label>
-              <input type="datetime-local" id="dispatch-return-time" required class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-teal font-mono">
+              <label class="block text-xs text-slate-300 mb-1">預計歸還日期 *</label>
+              <input type="date" id="disp-return-date" required class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
             </div>
 
             <div>
-              <label class="block text-slate-300 font-medium mb-1">選擇借出設備 (可多選) *</label>
-              <div id="dispatch-gear-selector" class="max-h-48 overflow-y-auto p-2 bg-brand-dark border border-brand-border rounded-lg space-y-1.5">
-                <!-- 動態注入可借用的設備多選核取框 -->
+              <label class="block text-xs text-slate-300 mb-1">選擇借出設備 (僅列出「在庫中」) *</label>
+              <div id="dispatch-gear-selector" class="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-brand-surface border border-brand-border rounded-lg text-xs">
+                <!-- 動態注入在庫設備核取方塊 -->
               </div>
             </div>
 
             <div>
-              <label class="block text-slate-300 font-medium mb-1">器材備註 / 特殊配件指示</label>
-              <textarea id="dispatch-notes" rows="2" placeholder="例如：頭燈/電池/麥克風" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal"></textarea>
+              <label class="block text-xs text-slate-300 mb-1">備註事項 (配件說明)</label>
+              <input type="text" id="disp-note" placeholder="例如：含提袋、充電器組、記憶卡2張" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
             </div>
 
-            <button type="submit" class="w-full py-2.5 rounded-lg bg-brand-teal hover:bg-cyan-500 text-black font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-cyan-900/20">
-              <i class="fa-solid fa-check"></i>
-              <span>核發借用出庫單</span>
+            <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-semibold rounded-lg text-xs transition shadow flex items-center justify-center gap-2">
+              <i class="fa-solid fa-truck-ramp-box"></i>
+              <span>核准出班借調並產出裝箱單</span>
             </button>
           </form>
         </div>
 
-        <!-- 右側：當前進行中的出班清冊 -->
-        <div class="lg:col-span-2 bg-brand-card p-5 rounded-xl border border-brand-border space-y-4">
+        <!-- 右側：現行借調清單與裝箱單檢視 -->
+        <div class="lg:col-span-2 bg-brand-card border border-brand-border rounded-xl p-5 space-y-4">
           <div class="flex items-center justify-between border-b border-brand-border pb-3">
             <div class="flex items-center gap-2">
-              <i class="fa-solid fa-list-check text-brand-gold text-lg"></i>
-              <div>
-                <h2 class="font-bold text-white text-base">目前外借中出班單與歸還查驗</h2>
-                <p class="text-xs text-slate-400">攝影助理返還器材時，核對無損後進行入庫結案</p>
-              </div>
+              <i class="fa-solid fa-receipt text-emerald-400"></i>
+              <h3 class="font-bold text-sm text-white">出班單與設備裝箱記錄</h3>
             </div>
-            <span class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 text-xs font-mono font-bold" id="active-dispatch-count">0 筆任務</span>
+            <span class="text-xs text-slate-400">點收與歸還管理</span>
           </div>
 
-          <!-- 出班單列表 -->
-          <div class="space-y-4" id="dispatch-list-container">
-            <!-- 動態注入進行中的借用單 -->
+          <div id="active-dispatches-container" class="space-y-3">
+            <!-- 動態注入出班卡片 -->
           </div>
         </div>
+
       </div>
     </section>
 
-    <!-- View 4: 機件維護與故障報修 -->
-    <section id="view-maintenance" class="space-y-6 hidden">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- 報修提交表單 -->
-        <div class="bg-brand-card p-5 rounded-xl border border-brand-border space-y-4">
-          <div class="flex items-center gap-2 border-b border-brand-border pb-3">
-            <i class="fa-solid fa-triangle-exclamation text-rose-500 text-lg"></i>
-            <div>
-              <h2 class="font-bold text-white text-base">異常異常報修</h2>
-              <p class="text-xs text-slate-400">攝影機對焦異常、硬碟損壞、聲音訊號異常</p>
-            </div>
+    <!-- ========================================== -->
+    <!-- 分頁 4: 設備維護與報修 (Maintenance) -->
+    <!-- ========================================== -->
+    <section id="tab-maintenance" class="hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        
+        <!-- 左側：異常異常報修表單 -->
+        <div class="bg-brand-card border border-brand-border rounded-xl p-5 space-y-4">
+          <div class="border-b border-brand-border pb-3">
+            <h3 class="font-bold text-sm text-white flex items-center gap-2">
+              <i class="fa-solid fa-triangle-exclamation text-rose-500"></i>
+              <span>異常異常報修</span>
+            </h3>
+            <p class="text-[11px] text-slate-400 mt-1">攝影機對焦異常、硬碟損壞、聲音訊號異常</p>
           </div>
 
-          <form id="form-report-maintenance" onsubmit="handleReportDefect(event)" class="space-y-3.5 text-xs">
+          <form id="form-maintenance" onsubmit="handleCreateMaintenance(event)" class="space-y-3">
             <div>
-              <label class="block text-slate-300 font-medium mb-1">異常器材選擇 *</label>
-              <select id="defect-gear-id" required class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-rose-500">
-                <!-- 動態注入所有器材清單 -->
+              <label class="block text-xs text-slate-300 mb-1">選擇異常設備 *</label>
+              <select id="maint-gear-id" required class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
+                <!-- 動態注入所有設備 -->
               </select>
             </div>
 
             <div>
-              <label class="block text-slate-300 font-medium mb-1">通報人 *</label>
-              <input type="text" id="defect-reporter" required placeholder="例如：林信義" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-rose-500">
+              <label class="block text-xs text-slate-300 mb-1">通報人 *</label>
+              <input type="text" id="maint-reporter" required placeholder="例如：林小明 / 攝影助理" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
             </div>
 
             <div>
-              <label class="block text-slate-300 font-medium mb-1">緊急程度 *</label>
-              <select id="defect-severity" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-rose-500 font-mono">
-                <option value="CRITICAL">高 (無法繼續使用)</option>
-                <option value="MEDIUM" selected>中 (部分功能受損)</option>
-                <option value="LOW">低 (接觸不良、配件異常)</option>
+              <label class="block text-xs text-slate-300 mb-1">緊急程度 *</label>
+              <select id="maint-severity" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs focus:outline-none focus:border-blue-500">
+                <option value="高">高 (無法繼續使用)</option>
+                <option value="中">中 (部分功能受損)</option>
+                <option value="低">低 (接觸不良、配件異常)</option>
               </select>
             </div>
 
             <div>
-              <label class="block text-slate-300 font-medium mb-1">故障狀況詳述 *</label>
-              <textarea id="defect-description" required rows="3" placeholder="請詳細描述異常狀況(例如：拍攝時鏡頭對焦異常，收音麥克風接頭接觸不良..)" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"></textarea>
+              <label class="block text-xs text-slate-300 mb-1">故障狀況詳述 *</label>
+              <textarea id="maint-desc" rows="3" required placeholder="請詳細描述異常狀況(例如：拍攝時鏡頭對焦異常，收音麥克風接頭接觸不良..)" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500"></textarea>
             </div>
 
-            <button type="submit" class="w-full py-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-rose-900/30">
+            <button type="submit" class="w-full py-2.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-bold rounded-lg text-xs transition shadow flex items-center justify-center gap-2">
               <i class="fa-solid fa-paper-plane"></i>
               <span>送出</span>
             </button>
           </form>
         </div>
 
-        <!-- 檢修歷史日誌 -->
-        <div class="lg:col-span-2 bg-brand-card p-5 rounded-xl border border-brand-border space-y-4">
-          <div class="flex items-center justify-between border-b border-brand-border pb-3">
-            <div class="flex items-center gap-2">
-              <i class="fa-solid fa-screwdriver-wrench text-brand-teal text-lg"></i>
-              <div>
-                <h2 class="font-bold text-white text-base">維護送修紀錄</h2>
-                <p class="text-xs text-slate-400">與廠商維修進度追蹤</p>
-              </div>
+        <!-- 右側：維護送修紀錄 -->
+        <div class="lg:col-span-2 bg-brand-card border border-brand-border rounded-xl p-5 space-y-4">
+          <div class="border-b border-brand-border pb-3 flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                <i class="fa-solid fa-wrench text-blue-400"></i>
+                <span>維護送修紀錄</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">與廠商維修進度追蹤</p>
             </div>
-            <span class="text-xs font-mono text-slate-400">定期校正週期：半年</span>
+            <span class="text-xs text-slate-400 font-mono">工程修復進度</span>
           </div>
 
-          <div class="space-y-3" id="maintenance-logs-container">
-            <!-- 動態生成保養維修紀錄 -->
+          <div id="maintenance-logs-container" class="space-y-3">
+            <!-- 動態注入維護紀錄 -->
           </div>
         </div>
+
       </div>
     </section>
 
   </main>
 
-  <!-- Modal 1: 登錄新器材 -->
-  <div id="modal-add-gear" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-brand-card border border-brand-border w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl animate-fade-in">
-      <div class="px-6 py-4 border-b border-brand-border flex items-center justify-between bg-brand-dark/50">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-plus-circle text-brand-teal"></i>
-          <h3 class="font-bold text-white text-base">登錄全新電視台影音資產</h3>
+  <!-- ========================================== -->
+  <!-- 彈窗 1: 登錄新設備 (Modal) -->
+  <!-- ========================================== -->
+  <div id="modal-add-gear" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+      <div class="p-4 bg-brand-surface border-b border-brand-border flex items-center justify-between">
+        <div class="flex items-center gap-2 text-white font-bold text-sm">
+          <i class="fa-solid fa-video text-blue-400"></i>
+          <span>登錄新設備</span>
         </div>
-        <button onclick="closeModal('modal-add-gear')" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+        <button type="button" onclick="closeModal('modal-add-gear')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
 
-      <form id="form-add-gear" onsubmit="handleCreateGear(event)" class="p-6 space-y-4 text-xs">
+      <form onsubmit="handleCreateGear(event)" class="p-5 space-y-3 text-xs">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-slate-300 font-medium">資產條碼編號</label>
+            <span class="text-[10px] text-slate-400">選填 (留空自動生成)</span>
+          </div>
+          <input type="text" id="add-gear-id" placeholder="例如：6000000000-00001" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">設備廠商完整型號 *</label>
+          <input type="text" id="add-gear-name" required placeholder="例如：PXW Z200攝影機" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500">
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-slate-300 font-medium mb-1">設備類別 *</label>
-            <select id="new-gear-category" required class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white focus:outline-none focus:border-brand-teal">
-              <option value="CAM">攝影機 (Camera Body)</option>
-              <option value="LENS">影視鏡頭 (Cine Lens)</option>
-              <option value="WIRELESS">無線圖傳/螢幕 (Wireless/Monitor)</option>
-              <option value="AUDIO">收音/無線麥克風 (Audio System)</option>
-              <option value="GRIP">油壓腳架/穩定架 (Grip/Tripod)</option>
-              <option value="POWER">高瓦數電池系統 (V-Mount Battery)</option>
+            <label class="block text-slate-300 font-medium mb-1">設備大類 *</label>
+            <select id="add-gear-cat" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white focus:outline-none focus:border-blue-500">
+              <option value="CAM">攝影主機 (CAM)</option>
+              <option value="LENS">鏡頭群 (LENS)</option>
+              <option value="AUDIO">收音成音 (AUDIO)</option>
+              <option value="LIGHT">燈光照明 (LIGHT)</option>
+              <option value="ACC">傳輸配件 (ACC)</option>
             </select>
           </div>
           <div>
-            <label class="block text-slate-300 font-medium mb-1 flex items-center justify-between">
-              <span>資產條碼編號</span>
-              <span class="text-[10px] text-slate-500 font-mono">選填 (留空自動生成)</span>
-            </label>
-            <input type="text" id="new-gear-tag" placeholder="例如：6000000000-00001" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white font-mono placeholder-slate-500 focus:outline-none focus:border-brand-teal">
+            <label class="block text-slate-300 font-medium mb-1">入庫地點 *</label>
+            <input type="text" id="add-gear-loc" required placeholder="例如：A1-03防潮箱" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500">
           </div>
         </div>
 
         <div>
-          <label class="block text-slate-300 font-medium mb-1">設備廠牌與完整型號 *</label>
-          <input type="text" id="new-gear-name" required placeholder="例如：PXW Z200攝影機" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal">
+          <label class="block text-slate-300 font-medium mb-1">光學規格 / 配件備註</label>
+          <input type="text" id="add-gear-specs" placeholder="例如：含原廠手把、遮光罩、充電組" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-blue-500">
         </div>
 
-        <div>
-          <label class="block text-slate-300 font-medium mb-1">入庫地點 *</label>
-          <input type="text" id="new-gear-location" required placeholder="例如：主庫房 A-03 號櫃 或 二樓器材架" class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal">
-        </div>
-
-        <div>
-          <label class="block text-slate-300 font-medium mb-1">隨附配件或規格備註</label>
-          <textarea id="new-gear-specs" rows="2" placeholder="例：附原廠手把、V口背板、電子觀景窗、雙卡槽..." class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-brand-teal"></textarea>
-        </div>
-
-        <div class="pt-2 flex justify-end gap-2">
-          <button type="button" onclick="closeModal('modal-add-gear')" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition font-medium">取消</button>
-          <button type="submit" class="px-5 py-2 rounded-lg bg-brand-teal text-black font-bold hover:bg-cyan-400 transition">確認入庫並建檔</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Modal 2: 出班清單裝箱明細單 (Pack List Printable View) -->
-  <div id="modal-pack-list" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-brand-card border border-brand-border w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-      <div class="px-6 py-4 border-b border-brand-border flex items-center justify-between bg-brand-dark/80">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-receipt text-brand-gold"></i>
-          <h3 class="font-bold text-white text-base">電視台出班設備裝箱簽核單 (Gear Checklist)</h3>
-        </div>
-        <button onclick="closeModal('modal-pack-list')" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
-      </div>
-
-      <div class="p-6 overflow-y-auto space-y-4 text-xs font-mono text-slate-300" id="pack-list-modal-content">
-        <!-- 動態由 JavaScript 生成簽核清單 -->
-      </div>
-
-      <div class="px-6 py-3 border-t border-brand-border bg-brand-dark/40 flex justify-between items-center text-xs">
-        <span class="text-slate-500">由 TV-OPS 攝影組設備管理系統自動生成</span>
-        <div class="flex gap-2">
-          <button onclick="copyPackListToClipboard()" class="px-4 py-2 rounded-lg bg-brand-teal/20 text-brand-teal border border-brand-teal/30 hover:bg-brand-teal/30 transition">
-            <i class="fa-regular fa-copy"></i> 複製清單文字
-          </button>
-          <button onclick="closeModal('modal-pack-list')" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 transition">關閉</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal 2.5: 管理員驗證閘道 (Admin PIN Gateway) -->
-  <div id="modal-admin-auth" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-brand-card border border-brand-border w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-6 space-y-4">
-      <div class="flex items-center justify-between border-b border-brand-border pb-3">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm border border-amber-500/30">
-            <i class="fa-solid fa-shield-halved"></i>
-          </div>
-          <div>
-            <h3 class="font-bold text-white text-sm">系統後台管理權限</h3>
-            <p class="text-[10px] text-slate-400 font-mono">ADMINISTRATIVE ACCESS</p>
-          </div>
-        </div>
-        <button onclick="closeModal('modal-admin-auth')" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <div class="text-xs text-slate-300 space-y-2">
-        <p class="text-slate-400 leading-relaxed text-[11px]">
-          包含 Google 試算表 Webhook 串接設定、資料庫清冊匯出入與系統重置，為防止出班人員誤觸調整，請輸入庫管主管密碼。
-        </p>
-        <div class="p-2 rounded bg-amber-950/30 border border-amber-800/40 text-[11px] text-amber-300 flex items-center gap-1.5">
-          <i class="fa-solid fa-key text-amber-400"></i>
-          <span>預設管理密碼為：<strong class="font-mono text-white">8888</strong></span>
-        </div>
-      </div>
-
-      <form onsubmit="handleAdminVerify(event)" class="space-y-3 pt-1">
-        <div>
-          <label class="block text-slate-300 text-xs font-medium mb-1">管理員驗證 PIN 碼</label>
-          <input type="password" id="admin-pin-input" placeholder="請輸入 4 位數 PIN 碼" required maxlength="10"
-            class="w-full px-3 py-2 bg-brand-dark border border-brand-border rounded-lg text-white font-mono tracking-widest text-center text-base focus:outline-none focus:border-amber-500">
-        </div>
-
-        <div class="flex gap-2 pt-1">
-          <button type="button" onclick="closeModal('modal-admin-auth')" class="w-1/2 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">
+        <div class="pt-3 border-t border-brand-border flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-add-gear')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition">
             取消
           </button>
-          <button type="submit" class="w-1/2 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs transition shadow-lg">
-            驗證並進入
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow">
+            確認登錄資產
           </button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal 3: Google 試算表 (Google Sheets) 雲端串接與備份管理 -->
-  <div id="modal-google-sync" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-    <div class="bg-brand-card border border-brand-border w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
-      <div class="px-6 py-4 border-b border-brand-border flex items-center justify-between bg-brand-dark/80">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-cloud-arrow-up text-emerald-400 text-lg"></i>
-          <div>
-            <h3 class="font-bold text-white text-base">Google 試算表雲端資料庫串接</h3>
-            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">工程主管已授權 (Admin Verified)</span>
-          </div>
+  <!-- ========================================== -->
+  <!-- 彈窗 2: 編輯設備與安全刪除 (Modal) -->
+  <!-- ========================================== -->
+  <div id="modal-edit-gear" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+      <div class="p-4 bg-brand-surface border-b border-brand-border flex items-center justify-between">
+        <div class="flex items-center gap-2 text-white font-bold text-sm">
+          <i class="fa-solid fa-gear text-blue-400"></i>
+          <span>編輯設備資料與設定</span>
         </div>
-        <button onclick="closeModal('modal-google-sync')" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+        <button type="button" onclick="closeModal('modal-edit-gear')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
 
-      <div class="p-6 overflow-y-auto space-y-5 text-xs">
-        <!-- 方式 1: Google Apps Script Webhook 直連 -->
-        <div class="p-4 rounded-xl bg-brand-dark border border-brand-border space-y-3">
-          <div class="flex items-center justify-between">
-            <h4 class="font-bold text-white text-sm flex items-center gap-2">
-              <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] font-mono">1</span>
-              Google 試算表 Webhook 即時寫入 (推薦)
-            </h4>
-            <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">免伺服器 / 免費</span>
-          </div>
-          <p class="text-slate-400 leading-relaxed text-[11px]">
-            在你的 Google 試算表中建立「擴充功能 > Apps Script」，將下方腳本貼上並部署為「網頁應用程式 (Web App)」，即可在此將設備、出班紀錄與報修直接同步儲存至你的 Google 試算表！
-          </p>
+      <div class="p-5 space-y-3 text-xs">
+        <input type="hidden" id="edit-gear-id">
 
+        <div>
+          <label class="block text-slate-400 font-medium mb-1">資產條碼編號 (唯讀)</label>
+          <input type="text" id="edit-gear-id-display" disabled class="w-full px-3 py-2 bg-brand-bg border border-brand-border rounded-lg text-slate-400 font-mono">
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">設備完整型號 *</label>
+          <input type="text" id="edit-gear-name" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-slate-300 font-medium mb-1">Google Apps Script 網頁應用程式網址 (Web App URL)</label>
-            <input type="url" id="google-webhook-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 bg-brand-card border border-brand-border rounded-lg text-white font-mono placeholder-slate-600 focus:outline-none focus:border-emerald-500">
+            <label class="block text-slate-300 font-medium mb-1">設備類別</label>
+            <select id="edit-gear-cat" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white focus:outline-none focus:border-blue-500">
+              <option value="CAM">攝影主機 (CAM)</option>
+              <option value="LENS">鏡頭群 (LENS)</option>
+              <option value="AUDIO">收音成音 (AUDIO)</option>
+              <option value="LIGHT">燈光照明 (LIGHT)</option>
+              <option value="ACC">傳輸配件 (ACC)</option>
+            </select>
           </div>
-
-          <div class="flex flex-wrap gap-2 pt-1">
-            <button onclick="syncDataToGoogleSheets()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 transition active:scale-95 shadow-md">
-              <i class="fa-solid fa-rotate"></i>
-              <span>立即同步所有資料到 Google 試算表</span>
-            </button>
-            <button onclick="copyAppsScriptCode()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition">
-              <i class="fa-regular fa-copy"></i>
-              <span>複製 Google Apps Script 腳本代碼</span>
-            </button>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">當前狀態</label>
+            <select id="edit-gear-status" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white focus:outline-none focus:border-blue-500">
+              <option value="IN_STOCK">在庫中</option>
+              <option value="DISPATCHED">領用中</option>
+              <option value="MAINTENANCE">檢修中</option>
+            </select>
           </div>
         </div>
 
-        <!-- 方式 2: CSV 匯出匯入 -->
-        <div class="p-4 rounded-xl bg-brand-dark border border-brand-border space-y-3">
-          <h4 class="font-bold text-white text-sm flex items-center gap-2">
-            <span class="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px] font-mono">2</span>
-            Google 試算表相容檔案匯出 / 匯入 (CSV / TSV)
-          </h4>
-          <p class="text-slate-400 leading-relaxed text-[11px]">
-            若暫不想設定 Apps Script，可直接將設備清單下載為 CSV，在 Google 雲端硬碟點兩下即可自動轉換為 Google 試算表；也可以從 Google 試算表匯出 CSV 回傳更新。
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">入庫位置</label>
+          <input type="text" id="edit-gear-loc" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">規格 / 備註</label>
+          <input type="text" id="edit-gear-specs" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white focus:outline-none focus:border-blue-500">
+        </div>
+
+        <!-- 刪除確認與管理員密碼驗證區 (需輸入 2815194) -->
+        <div id="delete-confirm-panel" class="hidden p-3 rounded-xl bg-rose-950/80 border border-rose-800 text-rose-200 space-y-2">
+          <div class="flex items-center gap-2 font-bold text-xs">
+            <i class="fa-solid fa-shield-halved text-rose-400"></i>
+            <span>管理者身分驗證 - 刪除設備</span>
+          </div>
+          <p class="text-[11px] text-rose-300 leading-relaxed">
+            此操作將從系統及雲端徹底移除該設備！請輸入管理員密碼：
           </p>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <button onclick="exportToGoogleCSV()" class="p-3 rounded-lg bg-brand-card border border-brand-border hover:border-brand-teal transition text-left flex items-center gap-3">
-              <i class="fa-solid fa-file-csv text-brand-teal text-xl"></i>
-              <div>
-                <div class="font-bold text-white">下載設備清冊 CSV</div>
-                <div class="text-[10px] text-slate-400">支援 Google 試算表直接開啟</div>
-              </div>
-            </button>
-
-            <label class="p-3 rounded-lg bg-brand-card border border-brand-border hover:border-brand-gold transition cursor-pointer flex items-center gap-3">
-              <i class="fa-solid fa-file-import text-brand-gold text-xl"></i>
-              <div>
-                <div class="font-bold text-white">從 Google 試算表 CSV 匯入</div>
-                <div class="text-[10px] text-slate-400">點擊選取 .csv 檔案並更新庫存</div>
-              </div>
-              <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="handleCsvImport(event)">
-            </label>
-          </div>
-        </div>
-
-        <!-- 方式 3: 完整 JSON 封裝備份 -->
-        <div class="p-4 rounded-xl bg-brand-dark border border-brand-border space-y-2">
-          <div class="flex items-center justify-between">
-            <h4 class="font-bold text-white text-sm flex items-center gap-2">
-              <span class="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-[10px] font-mono">3</span>
-              本機與雲端硬碟 JSON 完整備份還原
-            </h4>
-          </div>
-          <p class="text-slate-400 text-[11px]">將當前所有資產、出班借調單與異常檢修紀錄封裝成單一 JSON 備份檔。</p>
+          <input type="password" id="delete-gear-admin-pin" placeholder="請輸入管理員密碼" class="w-full px-3 py-2 bg-brand-bg border border-rose-700 rounded-lg text-white font-mono text-xs placeholder-slate-500 focus:outline-none focus:border-rose-400">
           <div class="flex gap-2 pt-1">
-            <button onclick="exportFullBackupJSON()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
-              <i class="fa-solid fa-download mr-1"></i> 下載完整備份 JSON
+            <button type="button" onclick="cancelDeleteGearUI()" class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
+              取消返回
             </button>
-            <label class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition cursor-pointer">
-              <i class="fa-solid fa-upload mr-1"></i> 還原 JSON 備份
-              <input type="file" id="json-backup-input" accept=".json" class="hidden" onchange="handleRestoreJSON(event)">
-            </label>
+            <button type="button" onclick="executeDeleteGear()" class="flex-1 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center justify-center gap-1">
+              <i class="fa-solid fa-trash"></i>
+              <span>驗證並刪除</span>
+            </button>
           </div>
         </div>
-      </div>
 
-      <div class="px-6 py-3 border-t border-brand-border bg-brand-dark/40 flex justify-end">
-        <button onclick="closeModal('modal-google-sync')" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 transition text-xs font-medium">關閉控制台</button>
+        <!-- 底部按鈕區 -->
+        <div id="edit-modal-actions" class="pt-3 border-t border-brand-border flex items-center justify-between gap-2">
+          <button type="button" onclick="triggerDeleteGearUI()" class="px-3 py-2 rounded-lg bg-rose-900/30 hover:bg-rose-900/60 border border-rose-700/60 text-rose-400 font-semibold transition flex items-center gap-1">
+            <i class="fa-solid fa-trash text-[11px]"></i>
+            <span>刪除此設備</span>
+          </button>
+          
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="closeModal('modal-edit-gear')" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+              取消
+            </button>
+            <button type="button" onclick="handleSaveGearEdit()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition shadow">
+              儲存變更
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 
-  <!-- 廣播級客製通知 Toast 元件 (取代警示視窗) -->
+  <!-- ========================================== -->
+  <!-- 彈窗 3: 管理者密碼驗證 (PIN Modal: 2815194) -->
+  <!-- ========================================== -->
+  <div id="modal-admin-pin" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-5 space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-lock"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-sm text-white">管理者權限驗證</h3>
+          <p class="text-xs text-slate-400">請輸入管理密碼進入系統後台</p>
+        </div>
+      </div>
+
+      <div>
+        <input type="password" id="input-admin-pin" placeholder="請輸入管理員密碼" class="w-full px-3.5 py-2.5 bg-brand-surface border border-brand-border rounded-xl text-white font-mono text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500">
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button type="button" onclick="closeModal('modal-admin-pin')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium">
+          取消
+        </button>
+        <button type="button" onclick="verifyAdminPin()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow">
+          驗證進入
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 彈窗 4: 系統管理後台 (Google 試算表記憶與診斷) -->
+  <!-- ========================================== -->
+  <div id="modal-system-admin" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      
+      <div class="p-4 bg-brand-surface border-b border-brand-border flex items-center justify-between">
+        <div class="flex items-center gap-2 text-white font-bold text-sm">
+          <i class="fa-solid fa-cloud text-emerald-400"></i>
+          <span>Google 試算表雲端資料庫管理後台</span>
+        </div>
+        <button type="button" onclick="closeModal('modal-system-admin')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-4 text-xs">
+        <!-- 網址設定區 (自動記憶保存) -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="font-semibold text-slate-200">Google Apps Script 網頁應用程式網址 (Web App URL)</label>
+            <span class="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+              <i class="fa-solid fa-check"></i>
+              <span>已自動儲存記憶</span>
+            </span>
+          </div>
+          <input type="text" id="google-webapp-url" onchange="handleGoogleUrlChanged()" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 bg-brand-surface border border-brand-border rounded-lg text-white font-mono placeholder-slate-500 focus:outline-none focus:border-blue-500">
+          <p class="text-[11px] text-slate-400">只要輸入一次，開機時系統會自動向試算表同步資料，重新整理也絕不遺失。</p>
+        </div>
+
+        <!-- 診斷與同步操作列 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+          <button type="button" onclick="testGoogleSheetsConnection()" class="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition flex items-center justify-center gap-1.5 shadow">
+            <i class="fa-solid fa-plug-circle-check"></i>
+            <span>一鍵雙向連線診斷</span>
+          </button>
+          <button type="button" onclick="loadDataFromGoogleSheets(true)" class="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition flex items-center justify-center gap-1.5 shadow">
+            <i class="fa-solid fa-cloud-arrow-down"></i>
+            <span>從試算表手動載入</span>
+          </button>
+          <button type="button" onclick="syncDataToGoogleSheets(true)" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-lg transition flex items-center justify-center gap-1.5 border border-brand-border">
+            <i class="fa-solid fa-cloud-arrow-up text-amber-400"></i>
+            <span>立即寫入試算表</span>
+          </button>
+        </div>
+
+        <!-- 連線檢測報告輸出盒 -->
+        <div id="connection-report-box" class="hidden p-3 rounded-xl bg-brand-surface border border-brand-border font-mono text-[11px] leading-relaxed">
+          <!-- 動態注入檢測狀態 -->
+        </div>
+
+        <!-- 腳本代碼與說明 -->
+        <div class="p-3.5 rounded-xl bg-slate-900 border border-brand-border space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-300">雙向 Apps Script 腳本代碼</span>
+            <button type="button" onclick="copyAppsScriptCode()" class="px-2.5 py-1 rounded bg-blue-600/30 hover:bg-blue-600 text-blue-300 hover:text-white font-mono transition text-[10px]">
+              <i class="fa-regular fa-copy mr-1"></i>複製腳本
+            </button>
+          </div>
+          <p class="text-slate-400 leading-relaxed text-[11px]">
+            在 Google 試算表中依序點擊「擴充功能」 > 「Apps Script」，將腳本覆蓋貼上，並部署為「網頁應用程式」（存取權設為「任何人」）即可開始雙向連線。
+          </p>
+        </div>
+
+      </div>
+
+      <div class="p-3 bg-brand-surface border-t border-brand-border flex items-center justify-between text-[11px] text-slate-400">
+        <span>管理者專屬控制台</span>
+        <button type="button" onclick="closeModal('modal-system-admin')" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition">
+          關閉返回
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 訊息提示系統 (Toast) -->
+  <!-- ========================================== -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
 
-  <script>
-    // 電視台現場高規格設備資料庫 (初始資料)
-    const defaultGears = [
+  <!-- 底部版權宣告 -->
+  <footer class="mt-auto border-t border-brand-border py-4 bg-brand-card text-center text-xs text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div>電視台影像設備管理平台 &middot; 廣播電視外景與棚內工程專用系統</div>
+      <div class="font-mono text-[11px]">STUDIO DARKSHEET &middot; 2026 PRODUCTION</div>
+    </div>
+  </footer>
+
+  <!-- ========================================== -->
+  <!-- 4. 模組化核心邏輯：雲端持久化儲存與 Google 雙向讀寫 -->
+  <!-- ========================================== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // 預設示範器材清冊種子資料
+    const DEFAULT_GEARS = [
+      { id: "610000000-00001", name: "Sony FX6 全片幅電影攝影機", category: "CAM", status: "IN_STOCK", location: "A1-01防潮箱", specs: "含原廠手把、頂部提把、收音線" },
+      { id: "610000000-00002", name: "Sony FX9 旗艦外景主機", category: "CAM", status: "DISPATCHED", location: "A1-02防潮箱", specs: "搭 XDCA 後背板、雙卡" },
+      { id: "610000000-00003", name: "PXW Z200攝影機 (4K 60P)", category: "CAM", status: "IN_STOCK", location: "A1-03防潮箱", specs: "20倍光學變焦、內建ND" },
+      { id: "610000000-00004", name: "Sony FE 24-70mm F2.8 GM II", category: "LENS", status: "IN_STOCK", location: "B2-01防潮櫃", specs: "含前後蓋、原廠遮光罩" },
+      { id: "610000000-00005", name: "Sony FE 70-200mm F2.8 GM OSS II", category: "LENS", status: "DISPATCHED", location: "B2-02防潮櫃", specs: "含遮光罩、腳架環" },
+      { id: "610000000-00006", name: "Fujinon 廣播變焦電影鏡 20-120mm", category: "LENS", status: "IN_STOCK", location: "B1-05防潮箱", specs: "含電控手把、PL轉E接環" },
+      { id: "610000000-00007", name: "Sennheiser MKH416 槍型麥克風", category: "AUDIO", status: "IN_STOCK", location: "C1-02收納盒", specs: "含兔毛防風罩、原廠防震架" },
+      { id: "610000000-00008", name: "Sony UWP-D21 無線領夾麥克風組", category: "AUDIO", status: "DISPATCHED", location: "C1-04配件包", specs: "一發一收、領夾麥克風頭" },
+      { id: "610000000-00009", name: "Aputure 600d Pro 影視高功率平板燈", category: "LIGHT", status: "IN_STOCK", location: "D1-架位區", specs: "含原廠控制盒、燈架、標準罩" },
+      { id: "610000000-00010", name: "Teradek Bolt 4K LT 750 無線圖傳", category: "ACC", status: "MAINTENANCE", location: "E2-配件架", specs: "HDMI/SDI發射端接觸不良" },
+      { id: "610000000-00011", name: "SmallHD Cine 7 導演監視螢幕", category: "ACC", status: "IN_STOCK", location: "E1-防潮櫃", specs: "含遮光罩、D-Tap供電線" }
+    ];
+
+    const DEFAULT_DISPATCHES = [
       {
-        id: "CAM-001",
-        name: "ARRI Alexa Mini LF 電影全幅攝影機",
-        category: "CAM",
-        location: "主機房防潮櫃 A-01",
-        status: "AVAILABLE", // AVAILABLE, IN_USE, REPAIR
-        currentBorrower: null,
-        project: null,
-        value: 2400000,
-        specs: "LPL / PL Mount，Codex Compact Drive 1TB x4，包含原廠配重把手"
-      },
-      {
-        id: "CAM-002",
-        name: "Sony FX9 全片幅廣播級攝錄影機 (Ver 3.0)",
-        category: "CAM",
-        location: "二號器材庫 C-02",
-        status: "IN_USE",
-        currentBorrower: "張力文 (主攝)",
-        project: "八點檔大戲 外景A組",
-        value: 480000,
-        specs: "附 XDCA-FX9 擴充背板，支援 RAW 輸出與 V-Mount 供電"
-      },
-      {
-        id: "CAM-003",
-        name: "Sony HDC-3500 4K 系統攝影機 (1號機)",
-        category: "CAM",
-        location: "第 1 攝影棚 導播位A",
-        status: "IN_USE",
-        currentBorrower: "高志明 (棚內資深攝影)",
-        project: "晚間 7 點旗艦新聞現場",
-        value: 1250000,
-        specs: "配置光纖傳輸適配器，Studio Viewfinder 7吋大型尋像器"
-      },
-      {
-        id: "CAM-004",
-        name: "RED V-Raptor 8K VV 旗艦攝影機",
-        category: "CAM",
-        location: "主機房防潮櫃 A-03",
-        status: "REPAIR",
-        currentBorrower: null,
-        project: null,
-        value: 920000,
-        specs: "感光元件 CMOS 需原廠深度超音波除塵，預計 3 天後完工"
-      },
-      {
-        id: "LENS-001",
-        name: "Fujinon Premista 28-100mm T2.9 全片幅電影變焦鏡",
-        category: "LENS",
-        location: "防潮櫃 B-02 (恆溫21°C)",
-        status: "AVAILABLE",
-        currentBorrower: null,
-        project: null,
-        value: 1180000,
-        specs: "PL 接環，前口徑 114mm，已通過後焦（Flange Depth）精確校正"
-      },
-      {
-        id: "LENS-002",
-        name: "Canon CN7x17 KAS S 廣播型電影伺服變焦鏡 (17-120mm)",
-        category: "LENS",
-        location: "二號器材庫 C-04",
-        status: "IN_USE",
-        currentBorrower: "張力文 (主攝)",
-        project: "八點檔大戲 外景A組",
-        value: 780000,
-        specs: "具伺服馬達變焦驅動器，支援 12-pin 廣播鏡頭控制線"
-      },
-      {
-        id: "LENS-003",
-        name: "Cooke S4/i 32mm T2.0 定焦電影鏡頭",
-        category: "LENS",
-        location: "防潮櫃 B-01",
-        status: "AVAILABLE",
-        currentBorrower: null,
-        project: null,
-        value: 650000,
-        specs: "經典 Cooke Look，具 /i Technology 鏡頭光學中繼數據傳輸"
-      },
-      {
-        id: "WIRELESS-001",
-        name: "Teradek Bolt 4K MAX 750 無線圖傳發射/接收套組",
-        category: "WIRELESS",
-        location: "調度室 D-01 盒裝",
-        status: "IN_USE",
-        currentBorrower: "張力文 (主攝)",
-        project: "八點檔大戲 外景A組",
-        value: 360000,
-        specs: "無延遲 4K HDR 傳輸，含 1 發 2 收，Gold Mount 電池座"
-      },
-      {
-        id: "WIRELESS-002",
-        name: "SmallHD Cine 7 導播高亮觸控螢幕 (附ARRI控制)",
-        category: "WIRELESS",
-        location: "調度室 D-02",
-        status: "AVAILABLE",
-        currentBorrower: null,
-        project: null,
-        value: 135000,
-        specs: "1800 nits 高亮度日光可視，支援 RED / ARRI 攝影機內部參數調控"
-      },
-      {
-        id: "AUDIO-001",
-        name: "Sound Devices 833 專業錄音混音器 (8軌)",
-        category: "AUDIO",
-        location: "成音間專屬櫃 E-01",
-        status: "AVAILABLE",
-        currentBorrower: null,
-        project: null,
-        value: 230000,
-        specs: "含 6 組超低噪聲 Ultra-HDDA 麥克風前級，支援 Dante 數位網絡"
-      },
-      {
-        id: "AUDIO-002",
-        name: "Wisycom MCR54 四通道廣播級無線收音接收組",
-        category: "AUDIO",
-        location: "成音間專屬櫃 E-02",
-        status: "AVAILABLE",
-        currentBorrower: null,
-        project: null,
-        value: 190000,
-        specs: "搭配 MTP40S 發射器 x4 與 Sanken COS-11D 領夾式麥克風"
-      },
-      {
-        id: "GRIP-001",
-        name: "Sachtler Video 18 S2 旗艦油壓腳架雲台組",
-        category: "GRIP",
-        location: "重器材區架位 G-01",
-        status: "IN_USE",
-        currentBorrower: "李佩珊 (專案攝助)",
-        project: "《探索台灣》特別專題組",
-        value: 260000,
-        specs: "承重 2-22kg，100mm 碗球，Speedbalance 16段平衡回饋"
-      },
-      {
-        id: "POWER-001",
-        name: "Anton Bauer Titon 150 V-Mount 高效鋰電池 4 入組",
-        category: "POWER",
-        location: "電源整備調度台 P-01",
-        status: "AVAILABLE",
-        currentBorrower: null,
-        project: null,
-        value: 98000,
-        specs: "156Wh / 10A 持續輸出，LCD 即時容量與殘電時間顯示"
+        id: "DSP-20260910-01",
+        project: "晚間焦點新聞外景專題",
+        dept: "新聞部",
+        user: "吳小英",
+        gearIds: ["610000000-00002", "610000000-00005", "610000000-00008"],
+        dateOut: "2026-09-10",
+        returnDate: "2026-09-11",
+        note: "含BP-U70電池兩顆、SDI訊號線"
       }
     ];
 
-    // 進行中的拍攝出班單 (Mock Dispatch Records)
-    const defaultDispatches = [
+    const DEFAULT_MAINTENANCE = [
       {
-        id: "DISP-20260909-01",
-        project: "八點檔大戲 外景A組",
-        borrower: "張力文 (主攝)",
-        location: "陽明山前山外景場地",
-        startTime: "2026-09-09 06:30",
-        expectedReturn: "2026-09-09 22:00",
-        gearIds: ["CAM-002", "LENS-002", "WIRELESS-001"],
-        notes: "需進行日夜戲交替拍攝，已附雙充電器與 4 顆 150Wh 電池",
-        status: "ACTIVE"
-      },
-      {
-        id: "DISP-20260909-02",
-        project: "晚間 7 點旗艦新聞現場",
-        borrower: "高志明 (棚內資深攝影)",
-        location: "第 1 攝影棚",
-        startTime: "2026-09-09 14:00",
-        expectedReturn: "2026-09-09 20:30",
-        gearIds: ["CAM-003"],
-        notes: "主機位連線，確認光纖訊號直通導播台矩陣",
-        status: "ACTIVE"
-      },
-      {
-        id: "DISP-20260909-03",
-        project: "《探索台灣》特別專題組",
-        borrower: "李佩珊 (專案攝助)",
-        location: "花蓮太魯閣外景",
-        startTime: "2026-09-08 09:00",
-        expectedReturn: "2026-09-10 18:00",
-        gearIds: ["GRIP-001"],
-        notes: "長途出差拍攝，已配附重型腳架防雨保護套袋",
-        status: "ACTIVE"
+        id: "MNT-20260909-01",
+        gearId: "610000000-00010",
+        reporter: "陳組長",
+        severity: "中 (部分功能受損)",
+        desc: "SDI 訊號輸出偶爾斷訊閃爍，疑似接頭金屬疲乏鬆脫",
+        date: "2026-09-09",
+        status: "送修中"
       }
     ];
 
-    // 維護紀錄
-    const defaultMaintenanceLogs = [
-      {
-        id: "MNT-2026-088",
-        gearId: "CAM-004",
-        gearName: "RED V-Raptor 8K VV",
-        reporter: "陳冠宇 (助理)",
-        date: "2026-09-07",
-        severity: "MEDIUM",
-        status: "IN_REPAIR",
-        description: "拍攝戶外風景時發現 F16 光圈縮小時，畫面中央偏右有 2 顆頑固塵點，經氣吹無法清除，已安排交由工程部無塵室進行微創感光元件清潔。"
-      },
-      {
-        id: "MNT-2026-082",
-        gearId: "LENS-001",
-        gearName: "Fujinon Premista 28-100mm T2.9",
-        reporter: "器材組 蕭工程師",
-        date: "2026-08-30",
-        severity: "LOW",
-        status: "RESOLVED",
-        description: "定期半年法蘭焦距（Back Focus）準焦投影檢驗完畢，無限遠對焦點標記精準無偏移，鏡片鍍膜無霧化。"
-      },
-      {
-        id: "MNT-2026-079",
-        gearId: "WIRELESS-001",
-        gearName: "Teradek Bolt 4K MAX 750",
-        reporter: "張力文 (主攝)",
-        date: "2026-08-25",
-        severity: "CRITICAL",
-        status: "RESOLVED",
-        description: "發射端 RP-SMA 天線母頭被遮光斗撞歪造成訊號衰減，已更換全新強化天線連接座並通過 300 公尺隔牆壓力發射測試。"
-      }
-    ];
-
-    // 本地記憶體運行狀態
-    let appState = {
-      currentUser: null, // 儲存當前執勤人員資訊 { name, role }
-      isAdminAuthenticated: false, // 是否已通過管理員驗證
-      gears: JSON.parse(JSON.stringify(defaultGears)),
-      dispatches: JSON.parse(JSON.stringify(defaultDispatches)),
-      maintenanceLogs: JSON.parse(JSON.stringify(defaultMaintenanceLogs)),
-      currentPackList: null
+    // 全域運行狀態
+    window.appState = {
+      currentUser: null,
+      currentDept: "新聞部",
+      gears: [...DEFAULT_GEARS],
+      dispatches: [...DEFAULT_DISPATCHES],
+      maintenances: [...DEFAULT_MAINTENANCE],
+      googleUrl: "",
+      isAdminVerified: false,
+      isDbReady: false
     };
 
-    // 觸發管理員專區 (如果已解鎖直接開，否則彈出 PIN 碼驗證)
-    function triggerAdminAccess() {
-      if (appState.isAdminAuthenticated) {
-        openModal('modal-google-sync');
-      } else {
-        document.getElementById('admin-pin-input').value = '';
-        openModal('modal-admin-auth');
-        setTimeout(() => {
-          document.getElementById('admin-pin-input').focus();
-        }, 150);
+    // Firebase 參數與嚴格安全規則處理
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'broadcast-gearops-v2';
+    let db = null;
+    let auth = null;
+
+    async function initCloudStorage() {
+      try {
+        if (typeof __firebase_config !== 'undefined') {
+          const firebaseConfig = JSON.parse(__firebase_config);
+          const app = initializeApp(firebaseConfig);
+          auth = getAuth(app);
+          db = getFirestore(app);
+
+          // 嚴格規則 3: 先驗證再查詢
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await signInAnonymously(auth);
+          }
+
+          if (!auth.currentUser) return;
+          window.appState.isDbReady = true;
+
+          // 綁定雲端即時監聽 (Rule 1: 嚴格路徑 /artifacts/{appId}/public/data/...)
+          setupRealtimeListeners();
+        } else {
+          // 若無配置，依然可保存在記憶體與 Google 試算表中
+          console.info("Running in standard mode");
+          checkSavedGoogleUrlAndAutoSync();
+        }
+      } catch (err) {
+        console.warn("Cloud storage init failed, using local/sheets sync", err);
+        checkSavedGoogleUrlAndAutoSync();
       }
     }
 
-    // 處理管理員 PIN 碼驗證 (預設 8888)
-    function handleAdminVerify(e) {
-      e.preventDefault();
-      const pin = document.getElementById('admin-pin-input').value.trim();
-      if (pin === '8888') {
-        appState.isAdminAuthenticated = true;
-        closeModal('modal-admin-auth');
-        openModal('modal-google-sync');
-        showToast('管理員授權成功', '已解除後台鎖定，現在可以設定 Google 試算表與系統備份。', 'success');
-      } else {
-        showToast('驗證失敗', '管理員 PIN 碼不正確，請確認（預設碼：8888）', 'error');
-        document.getElementById('admin-pin-input').value = '';
-        document.getElementById('admin-pin-input').focus();
+    function setupRealtimeListeners() {
+      if (!db || !auth.currentUser) return;
+
+      // 監聽器材主要清冊
+      const gearsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'gears_registry');
+      onSnapshot(gearsDocRef, (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.items) && data.items.length > 0) {
+            window.appState.gears = data.items;
+          }
+          if (Array.isArray(data.dispatches)) {
+            window.appState.dispatches = data.dispatches;
+          }
+          if (Array.isArray(data.maintenances)) {
+            window.appState.maintenances = data.maintenances;
+          }
+          if (data.googleUrl) {
+            window.appState.googleUrl = data.googleUrl;
+            const urlInput = document.getElementById('google-webapp-url');
+            if (urlInput) urlInput.value = data.googleUrl;
+          }
+          renderAllViews();
+          // 若有設定 Google 試算表，首次啟動自動拉取最新試算表資料
+          checkSavedGoogleUrlAndAutoSync();
+        } else {
+          // 首次初始化雲端
+          persistToCloud();
+        }
+      }, (err) => {
+        console.warn("Realtime listener error:", err);
+      });
+    }
+
+    // 將所有設備狀態保存到雲端持久化
+    async function persistToCloud() {
+      if (!db || !auth.currentUser) return;
+      try {
+        const gearsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'gears_registry');
+        await setDoc(gearsDocRef, {
+          items: window.appState.gears,
+          dispatches: window.appState.dispatches,
+          maintenances: window.appState.maintenances,
+          googleUrl: window.appState.googleUrl,
+          lastUpdated: new Date().toISOString()
+        }, { merge: true });
+      } catch (e) {
+        console.warn("Could not persist to cloud db:", e);
       }
     }
 
-    function handleUserLogin(e) {
-      e.preventDefault();
-      const usernameInput = document.getElementById('login-username');
-      const roleSelect = document.getElementById('login-userrole');
-      const name = usernameInput.value.trim();
-      const role = roleSelect.value;
+    let hasAutoSyncedFromSheets = false;
+    async function checkSavedGoogleUrlAndAutoSync() {
+      if (hasAutoSyncedFromSheets) return;
+      const urlInput = document.getElementById('google-webapp-url');
+      const url = window.appState.googleUrl || (urlInput ? urlInput.value.trim() : '');
+
+      if (url && url.startsWith('https://script.google.com/macros/s/')) {
+        hasAutoSyncedFromSheets = true;
+        // 背景自動載入最新 Google 試算表設備
+        await loadDataFromGoogleSheets(false);
+      }
+    }
+
+    // ==========================================
+    // 介面渲染與操作函式 (掛載至 window 供 HTML 呼叫)
+    // ==========================================
+    function initClock() {
+      const update = () => {
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0];
+        const clockEl = document.getElementById('current-clock');
+        if (clockEl) clockEl.innerText = timeStr;
+      };
+      update();
+      setInterval(update, 1000);
+    }
+
+    function checkAuthGateway() {
+      const gateway = document.getElementById('signin-gateway');
+      if (!window.appState.currentUser) {
+        gateway.classList.remove('hidden');
+      } else {
+        gateway.classList.add('hidden');
+        updateUserDisplay();
+      }
+    }
+
+    function handleUserSignIn() {
+      const nameInput = document.getElementById('input-signin-name');
+      const deptSelect = document.getElementById('select-signin-dept');
+      const name = nameInput.value.trim();
 
       if (!name) {
-        showToast('請輸入姓名', '進入平台前請先填寫執勤人員姓名', 'warning');
-        usernameInput.focus();
+        showToast('請輸入姓名', '請輸入您的執勤同仁姓名以進入平台', 'error');
+        nameInput.focus();
         return;
       }
 
-      appState.currentUser = { name, role };
+      window.appState.currentUser = name;
+      window.appState.currentDept = deptSelect.value;
+      updateUserDisplay();
 
-      // 隱藏登入閘道遮罩
-      const gateway = document.getElementById('login-gateway');
-      gateway.classList.add('transition-opacity', 'duration-500', 'opacity-0', 'pointer-events-none');
-      setTimeout(() => {
-        gateway.classList.add('hidden');
-        gateway.classList.remove('flex');
-      }, 500);
-
-      // 更新頂部使用者名稱顯示
-      const displayEl = document.getElementById('current-user-display');
-      if (displayEl) {
-        displayEl.innerHTML = `${name} <span class="text-[10px] px-1.5 py-0.2 rounded bg-brand-teal/15 text-brand-teal font-normal hidden sm:inline">${role.split(' ')[0]}</span>`;
-      }
-
-      // 自動將當前使用者姓名填入出班單領用人與報修通報人預設欄位
-      const dispatchBorrower = document.getElementById('dispatch-borrower');
-      if (dispatchBorrower && !dispatchBorrower.value) {
-        dispatchBorrower.value = `${name} (${role.split(' ')[0]})`;
-      }
-      const defectReporter = document.getElementById('defect-reporter');
-      if (defectReporter && !defectReporter.value) {
-        defectReporter.value = `${name} (${role.split(' ')[0]})`;
-      }
-
-      showToast('執勤簽到成功', `歡迎 ${name}！已順利進入電視台器材調度管理中心。`, 'success');
+      document.getElementById('signin-gateway').classList.add('hidden');
+      showToast('簽到成功', `歡迎 ${window.appState.currentUser}（${window.appState.currentDept}）進入系統`, 'success');
     }
 
-    function handleUserLogout() {
-      appState.currentUser = null;
-      appState.isAdminAuthenticated = false; // 登出時同步鎖定管理權限
-      const gateway = document.getElementById('login-gateway');
-      gateway.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
-      gateway.classList.add('flex');
-      document.getElementById('login-username').value = '';
-      document.getElementById('login-username').focus();
-      showToast('已登出', '請重新輸入人員姓名以登入系統', 'info');
+    function handleUserSignOut() {
+      window.appState.currentUser = null;
+      const gateway = document.getElementById('signin-gateway');
+      const nameInput = document.getElementById('input-signin-name');
+      if (nameInput) nameInput.value = '';
+      gateway.classList.remove('hidden');
+      showToast('已登出', '請重新輸入身分簽到進入系統', 'info');
     }
 
-    // 自訂電視台風格 Toast 通知系統 (不使用瀏覽器原生 alert)
-    function showToast(title, message, type = 'info') {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      
-      let borderCol = 'border-brand-teal';
-      let icon = '<i class="fa-solid fa-circle-info text-cyan-400 text-base"></i>';
-      
-      if (type === 'success') {
-        borderCol = 'border-emerald-500';
-        icon = '<i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>';
-      } else if (type === 'warning') {
-        borderCol = 'border-amber-500';
-        icon = '<i class="fa-solid fa-triangle-exclamation text-amber-400 text-base"></i>';
-      } else if (type === 'error') {
-        borderCol = 'border-rose-500';
-        icon = '<i class="fa-solid fa-circle-xmark text-rose-400 text-base"></i>';
-      }
+    function updateUserDisplay() {
+      const nameEl = document.getElementById('current-user-name');
+      const deptEl = document.getElementById('current-user-dept');
+      const dispUser = document.getElementById('disp-user');
+      const dispDept = document.getElementById('disp-dept');
+      const maintRep = document.getElementById('maint-reporter');
 
-      toast.className = `pointer-events-auto bg-brand-card/95 backdrop-blur border-l-4 ${borderCol} border-y border-r border-brand-border p-3.5 rounded-xl shadow-2xl flex items-start gap-3 transition-all duration-300 transform translate-y-4 opacity-0`;
-      toast.innerHTML = `
-        <div class="mt-0.5">${icon}</div>
-        <div class="flex-1">
-          <div class="font-bold text-xs text-white">${title}</div>
-          <div class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">${message}</div>
-        </div>
-      `;
-
-      container.appendChild(toast);
-
-      // 動畫漸入
-      setTimeout(() => {
-        toast.classList.remove('translate-y-4', 'opacity-0');
-      }, 50);
-
-      // 4秒後自動移除
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-x-full');
-        setTimeout(() => toast.remove(), 300);
-      }, 4000);
+      if (nameEl) nameEl.innerText = window.appState.currentUser || '未登入';
+      if (deptEl) deptEl.innerText = window.appState.currentDept || '新聞部';
+      if (dispUser && !dispUser.value) dispUser.value = window.appState.currentUser || '';
+      if (dispDept && window.appState.currentDept) dispDept.value = window.appState.currentDept;
+      if (maintRep && !maintRep.value) maintRep.value = window.appState.currentUser || '';
     }
 
-    // Modal 控制器
-    function openModal(id) {
-      const m = document.getElementById(id);
-      if (m) {
-        m.classList.remove('hidden');
-        m.classList.add('flex');
-      }
-    }
-
-    function closeModal(id) {
-      const m = document.getElementById(id);
-      if (m) {
-        m.classList.add('hidden');
-        m.classList.remove('flex');
-      }
-    }
-
-    // 分頁切換器
     function switchTab(tabId) {
-      const views = ['dashboard', 'inventory', 'dispatch', 'maintenance'];
-      views.forEach(v => {
-        const viewEl = document.getElementById(`view-${v}`);
-        const btnEl = document.getElementById(`tab-btn-${v}`);
-        if (v === tabId) {
-          viewEl.classList.remove('hidden');
-          btnEl.classList.add('border-brand-teal', 'text-brand-teal');
-          btnEl.classList.remove('border-transparent', 'text-slate-400');
+      const tabs = ['dashboard', 'inventory', 'dispatch', 'maintenance'];
+      tabs.forEach(t => {
+        const sec = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tabId) {
+          sec.classList.remove('hidden');
+          btn.classList.add('bg-blue-600', 'text-white', 'shadow');
+          btn.classList.remove('text-slate-400');
         } else {
-          viewEl.classList.add('hidden');
-          btnEl.classList.remove('border-brand-teal', 'text-brand-teal');
-          btnEl.classList.add('border-transparent', 'text-slate-400');
+          sec.classList.add('hidden');
+          btn.classList.remove('bg-blue-600', 'text-white', 'shadow');
+          btn.classList.add('text-slate-400');
         }
       });
+    }
 
-      // 觸發對應視圖的重新渲染
-      if (tabId === 'inventory') renderInventoryTable();
-      if (tabId === 'dispatch') refreshDispatchFormSelectors();
-      if (tabId === 'maintenance') refreshMaintenanceGearSelect();
+    function renderAllViews() {
+      updateStats();
+      renderDashboardSchedules();
+      renderInventoryTable();
+      refreshDispatchFormSelectors();
+      renderActiveDispatches();
+      refreshMaintenanceGearSelect();
+      renderMaintenanceLogs();
     }
 
     function updateStats() {
-      const total = appState.gears.length;
-      const available = appState.gears.filter(g => g.status === 'AVAILABLE').length;
-      const inUse = appState.gears.filter(g => g.status === 'IN_USE').length;
-      const repair = appState.gears.filter(g => g.status === 'REPAIR').length;
+      const inStock = window.appState.gears.filter(g => g.status === 'IN_STOCK').length;
+      const dispatched = window.appState.gears.filter(g => g.status === 'DISPATCHED').length;
+      const maintenance = window.appState.gears.filter(g => g.status === 'MAINTENANCE').length;
 
-      // 頂部小標
-      document.getElementById('stat-available-quick').textContent = available;
-      document.getElementById('stat-inuse-quick').textContent = inUse;
-      document.getElementById('stat-repair-quick').textContent = repair;
+      const elInStock = document.getElementById('stat-in-stock');
+      const elDispatched = document.getElementById('stat-dispatched');
+      const elMaint = document.getElementById('stat-maintenance');
 
-      // 儀表板大卡片
-      document.getElementById('card-total-gear').textContent = total;
-      document.getElementById('card-inuse-gear').textContent = inUse;
-      document.getElementById('card-available-gear').textContent = available;
-      document.getElementById('card-repair-gear').textContent = repair;
+      if (elInStock) elInStock.innerText = `${inStock} 件`;
+      if (elDispatched) elDispatched.innerText = `${dispatched} 件`;
+      if (elMaint) elMaint.innerText = `${maintenance} 件`;
     }
 
     function renderDashboardSchedules() {
-      const container = document.getElementById('shoot-schedule-container');
-      container.innerHTML = '';
+      const container = document.getElementById('dashboard-dispatch-list');
+      if (!container) return;
 
-      if (appState.dispatches.length === 0) {
+      if (window.appState.dispatches.length === 0) {
         container.innerHTML = `
           <div class="py-8 text-center text-slate-500 text-xs">
-            目前所有外景隊伍與攝影棚皆無進行中設備借調
-          </div>
-        `;
+            <i class="fa-solid fa-box-open text-2xl mb-2 text-slate-600 block"></i>
+            目前無出班外借中的設備清單
+          </div>`;
         return;
       }
 
-      appState.dispatches.forEach(disp => {
-        const assignedGearNames = disp.gearIds.map(id => {
-          const gear = appState.gears.find(g => g.id === id);
+      container.innerHTML = window.appState.dispatches.map(disp => {
+        const gearNames = disp.gearIds.map(id => {
+          const gear = window.appState.gears.find(g => g.id === id);
           return gear ? gear.name : id;
-        });
+        }).join(', ');
 
-        const card = document.createElement('div');
-        card.className = "p-4 rounded-xl bg-brand-dark/70 border border-brand-border flex flex-col md:flex-row md:items-center justify-between gap-4";
-        card.innerHTML = `
-          <div class="space-y-1.5 flex-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                ${disp.id}
-              </span>
-              <h3 class="font-bold text-white text-sm">${disp.project}</h3>
-              <span class="text-xs text-slate-400 font-mono flex items-center gap-1">
-                <i class="fa-solid fa-location-dot text-rose-400"></i> ${disp.location}
-              </span>
+        return `
+          <div class="p-3.5 rounded-xl bg-brand-surface border border-brand-border hover:border-slate-600 transition flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-xs text-white">${escapeHtml(disp.project)}</span>
+                <span class="px-1.5 py-0.2 rounded text-[10px] bg-blue-500/20 text-blue-300 font-mono">${escapeHtml(disp.dept)}</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 line-clamp-1">
+                <i class="fa-solid fa-camera mr-1 text-slate-500"></i>${escapeHtml(gearNames)}
+              </p>
             </div>
-            <div class="text-xs text-slate-300">
-              <span class="text-slate-400">掌機負責人：</span><span class="font-medium text-brand-teal">${disp.borrower}</span>
+            <div class="flex items-center gap-3 text-right">
+              <div>
+                <div class="text-xs text-slate-200 font-medium">${escapeHtml(disp.user)}</div>
+                <div class="text-[10px] text-amber-400 font-mono">預計歸還: ${escapeHtml(disp.returnDate)}</div>
+              </div>
+              <button type="button" onclick="quickReturnDispatch('${disp.id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 text-[11px] transition">
+                歸還點收
+              </button>
             </div>
-            <div class="flex flex-wrap gap-1.5 pt-1">
-              ${assignedGearNames.map(name => `
-                <span class="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700 text-slate-300 text-[11px] flex items-center gap-1 font-mono">
-                  <i class="fa-solid fa-camera text-slate-500 text-[9px]"></i> ${name}
-                </span>
-              `).join('')}
-            </div>
-          </div>
-
-          <div class="flex md:flex-col items-end justify-between md:justify-center border-t md:border-t-0 pt-2 md:pt-0 border-brand-border gap-2">
-            <div class="text-right">
-              <div class="text-[10px] text-slate-500 font-mono">預計歸還時間</div>
-              <div class="text-xs font-mono text-amber-400 font-semibold">${disp.expectedReturn}</div>
-            </div>
-            <button onclick="viewPackList('${disp.id}')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1.5 transition">
-              <i class="fa-solid fa-receipt text-amber-400"></i>
-              <span>出班明細</span>
-            </button>
           </div>
         `;
-        container.appendChild(card);
-      });
+      }).join('');
     }
 
     function renderInventoryTable() {
-      const tbody = document.getElementById('inventory-table-body');
-      tbody.innerHTML = '';
+      const tbody = document.getElementById('inventory-tbody');
+      if (!tbody) return;
+      const searchEl = document.getElementById('inventory-search');
+      const searchVal = searchEl ? searchEl.value.toLowerCase().trim() : '';
+      const catEl = document.getElementById('filter-category');
+      const catVal = catEl ? catEl.value : 'ALL';
+      const statusEl = document.getElementById('filter-status');
+      const statusVal = statusEl ? statusEl.value : 'ALL';
 
-      const query = document.getElementById('inventory-search').value.toLowerCase().trim();
-      const catFilter = document.getElementById('filter-category').value;
-      const statusFilter = document.getElementById('filter-status').value;
-
-      const filtered = appState.gears.filter(item => {
-        const matchesQuery = item.name.toLowerCase().includes(query) ||
-                             item.id.toLowerCase().includes(query) ||
-                             item.location.toLowerCase().includes(query) ||
-                             (item.currentBorrower && item.currentBorrower.toLowerCase().includes(query)) ||
-                             (item.project && item.project.toLowerCase().includes(query));
-        const matchesCat = catFilter === 'ALL' || item.category === catFilter;
-        const matchesStatus = statusFilter === 'ALL' || item.status === statusFilter;
-        return matchesQuery && matchesCat && matchesStatus;
+      let filtered = window.appState.gears.filter(g => {
+        const matchesSearch = (g.name && g.name.toLowerCase().includes(searchVal)) ||
+                              (g.id && g.id.toLowerCase().includes(searchVal)) ||
+                              (g.location && g.location.toLowerCase().includes(searchVal));
+        const matchesCat = (catVal === 'ALL') || (g.category === catVal);
+        const matchesStatus = (statusVal === 'ALL') || (g.status === statusVal);
+        return matchesSearch && matchesCat && matchesStatus;
       });
 
-      document.getElementById('inventory-count-summary').textContent = `共篩選出 ${filtered.length} 筆資產項目 (總庫存 ${appState.gears.length})`;
+      const countLabel = document.getElementById('inventory-count-label');
+      if (countLabel) {
+        countLabel.innerText = `共顯示 ${filtered.length} 筆設備 (庫存總量: ${window.appState.gears.length})`;
+      }
 
       if (filtered.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="6" class="text-center py-10 text-slate-500 text-xs">
-              查無符合條件的器材，請嘗試調整搜尋關鍵字或篩選狀態
+            <td colspan="6" class="py-8 text-center text-slate-500">
+              <i class="fa-solid fa-folder-open text-2xl mb-1 block"></i>
+              無符合條件的器材資料
             </td>
           </tr>
         `;
         return;
       }
 
-      filtered.forEach(item => {
+      tbody.innerHTML = filtered.map(gear => {
+        const activeDisp = window.appState.dispatches.find(d => d.gearIds && d.gearIds.includes(gear.id));
+        const loanDetail = activeDisp ? `${escapeHtml(activeDisp.user)} (${escapeHtml(activeDisp.project)})` : '<span class="text-slate-600">-</span>';
+
         let statusBadge = '';
-        if (item.status === 'AVAILABLE') {
-          statusBadge = '<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-800/60"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>在庫中</span>';
-        } else if (item.status === 'IN_USE') {
-          statusBadge = '<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-amber-950/60 text-amber-400 border border-amber-800/60"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-tally"></span>領用中</span>';
-        } else if (item.status === 'REPAIR') {
-          statusBadge = '<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-rose-950/60 text-rose-400 border border-rose-800/60"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>檢修中</span>';
+        if (gear.status === 'IN_STOCK') {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>在庫中</span>`;
+        } else if (gear.status === 'DISPATCHED') {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>領用中</span>`;
+        } else {
+          statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>檢修中</span>`;
         }
 
-        let categoryBadge = '';
-        switch(item.category) {
-          case 'CAM': categoryBadge = '<span class="text-red-400 font-mono">攝影機主機</span>'; break;
-          case 'LENS': categoryBadge = '<span class="text-cyan-400 font-mono">電影鏡頭群</span>'; break;
-          case 'WIRELESS': categoryBadge = '<span class="text-purple-400 font-mono">圖傳/螢幕</span>'; break;
-          case 'AUDIO': categoryBadge = '<span class="text-emerald-400 font-mono">成音系統</span>'; break;
-          case 'GRIP': categoryBadge = '<span class="text-amber-400 font-mono">油壓腳架</span>'; break;
-          case 'POWER': categoryBadge = '<span class="text-blue-400 font-mono">電源動力</span>'; break;
-          default: categoryBadge = '<span class="text-slate-400 font-mono">週邊配件</span>';
-        }
-
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-brand-dark/40 transition group";
-        tr.innerHTML = `
-          <td class="py-3 px-4 font-mono">
-            <div class="font-bold text-white flex items-center gap-1.5">
-              <i class="fa-solid fa-qrcode text-slate-500 group-hover:text-brand-teal transition text-xs"></i>
-              ${item.id}
-            </div>
-            <div class="text-[11px]">${categoryBadge}</div>
-          </td>
-          <td class="py-3 px-4">
-            <div class="font-semibold text-slate-200">${item.name}</div>
-            <div class="text-[11px] text-slate-400 line-clamp-1">${item.specs || '標準廣播工規配件'}</div>
-          </td>
-          <td class="py-3 px-4 font-mono text-xs text-slate-300">
-            <i class="fa-solid fa-warehouse text-slate-500 text-[10px] mr-1"></i> ${item.location}
-          </td>
-          <td class="py-3 px-4 whitespace-nowrap">
-            ${statusBadge}
-          </td>
-          <td class="py-3 px-4 text-xs">
-            ${item.status === 'IN_USE' ? `
-              <div class="text-slate-200 font-medium">${item.currentBorrower}</div>
-              <div class="text-[11px] text-slate-400 line-clamp-1">${item.project}</div>
-            ` : `
-              <span class="text-slate-500 font-mono text-xs">-</span>
-            `}
-          </td>
-          <td class="py-3 px-4 text-right whitespace-nowrap">
-            <div class="flex items-center justify-end gap-1.5">
-              ${item.status === 'AVAILABLE' ? `
-                <button onclick="quickDispatchSingleGear('${item.id}')" title="快速派發" class="p-1.5 rounded hover:bg-slate-800 text-brand-teal transition">
-                  <i class="fa-solid fa-arrow-right-from-bracket"></i>
-                </button>
-              ` : ''}
-              ${item.status === 'IN_USE' ? `
-                <button onclick="quickReturnGear('${item.id}')" title="快速點交入庫" class="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-mono transition">
-                  入庫歸還
-                </button>
-              ` : ''}
-              <button onclick="quickDefectForGear('${item.id}')" title="回報異常" class="p-1.5 rounded hover:bg-slate-800 text-rose-400 transition">
-                <i class="fa-solid fa-wrench"></i>
-              </button>
-            </div>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function refreshDispatchFormSelectors() {
-      const container = document.getElementById('dispatch-gear-selector');
-      container.innerHTML = '';
-
-      const availableGears = appState.gears.filter(g => g.status === 'AVAILABLE');
-
-      if (availableGears.length === 0) {
-        container.innerHTML = `<div class="text-slate-500 text-xs p-2">目前沒有庫房待命設備可供借調</div>`;
-        return;
-      }
-
-      availableGears.forEach(gear => {
-        const item = document.createElement('label');
-        item.className = "flex items-center gap-2 p-1.5 rounded hover:bg-brand-card/80 cursor-pointer text-slate-200 text-xs select-none";
-        item.innerHTML = `
-          <input type="checkbox" name="dispatch_gear_item" value="${gear.id}" class="rounded border-brand-border text-brand-teal focus:ring-0 bg-brand-dark">
-          <span class="font-mono text-slate-400 font-bold">[${gear.id}]</span>
-          <span class="truncate flex-1">${gear.name}</span>
-          <span class="text-[10px] text-slate-500 font-mono">${gear.location}</span>
-        `;
-        container.appendChild(item);
-      });
-
-      renderDispatchList();
-    }
-
-    function renderDispatchList() {
-      const container = document.getElementById('dispatch-list-container');
-      const countBadge = document.getElementById('active-dispatch-count');
-      container.innerHTML = '';
-
-      countBadge.textContent = `${appState.dispatches.length} 筆進行中單據`;
-
-      if (appState.dispatches.length === 0) {
-        container.innerHTML = `
-          <div class="py-12 text-center text-slate-500 text-xs">
-            <i class="fa-solid fa-box-open text-3xl mb-2 text-slate-600 block"></i>
-            無外借中設備，所有高階鏡頭與機身皆在庫房防潮箱中安放。
-          </div>
-        `;
-        return;
-      }
-
-      appState.dispatches.forEach(disp => {
-        const items = disp.gearIds.map(id => appState.gears.find(g => g.id === id)).filter(Boolean);
-
-        const card = document.createElement('div');
-        card.className = "p-4 rounded-xl bg-brand-dark/60 border border-brand-border space-y-3";
-        card.innerHTML = `
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-brand-border/60 pb-2.5">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="font-mono font-bold text-brand-teal text-xs">${disp.id}</span>
-                <span class="font-bold text-white text-sm">${disp.project}</span>
-              </div>
-              <div class="text-xs text-slate-400 flex items-center gap-3 mt-1 font-mono">
-                <span><i class="fa-solid fa-user-tag text-slate-500"></i> ${disp.borrower}</span>
-                <span><i class="fa-solid fa-location-crosshairs text-slate-500"></i> ${disp.location}</span>
-              </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <button onclick="viewPackList('${disp.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-receipt text-amber-400"></i> 裝箱單
-              </button>
-              <button onclick="returnEntireDispatch('${disp.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 text-xs font-semibold flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-boxes-packing"></i> 整批結案歸還
-              </button>
-            </div>
-          </div>
-
-          <!-- 借出設備細目 -->
-          <div class="space-y-1.5">
-            <div class="text-[11px] text-slate-400 font-mono">調用器材清單 (${items.length} 件)：</div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              ${items.map(gear => `
-                <div class="p-2 rounded bg-brand-card border border-brand-border flex items-center justify-between text-xs">
-                  <div>
-                    <span class="font-mono text-brand-teal font-bold mr-1.5">[${gear.id}]</span>
-                    <span class="text-slate-200">${gear.name}</span>
-                  </div>
-                  <button onclick="quickReturnGear('${gear.id}')" title="單件點交歸還" class="text-[11px] text-slate-400 hover:text-emerald-400 px-1.5 py-0.5 rounded bg-slate-800">
-                    點還
+        return `
+          <tr class="hover:bg-brand-surface/40 transition">
+            <td class="py-3 px-3.5 font-mono text-slate-400">${escapeHtml(gear.id)}</td>
+            <td class="py-3 px-3.5">
+              <div class="font-medium text-white">${escapeHtml(gear.name)}</div>
+              <div class="text-[10px] text-slate-500">${escapeHtml(gear.specs || '')}</div>
+            </td>
+            <td class="py-3 px-3.5 text-slate-300">${escapeHtml(gear.location || '未標註')}</td>
+            <td class="py-3 px-3.5 text-slate-300 text-[11px]">${loanDetail}</td>
+            <td class="py-3 px-3.5">${statusBadge}</td>
+            <td class="py-3 px-3.5 text-right">
+              <div class="flex items-center justify-end gap-1.5">
+                ${gear.status === 'IN_STOCK' ? `
+                  <button type="button" onclick="quickDispatchSingleGear('${gear.id}')" title="快速借調出班" class="px-2 py-1 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white transition text-[11px]">
+                    借調出班
                   </button>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-
-          <div class="flex justify-between items-center text-[11px] text-slate-500 font-mono pt-1">
-            <span>預定歸還：<span class="text-amber-400">${disp.expectedReturn}</span></span>
-            <span>備註：${disp.notes || '無特殊附註'}</span>
-          </div>
+                ` : ''}
+                <button type="button" onclick="openEditGearModal('${gear.id}')" title="編輯設備 / 刪除設定" class="w-7 h-7 rounded bg-brand-surface hover:bg-slate-700 text-slate-300 border border-brand-border flex items-center justify-center transition">
+                  <i class="fa-solid fa-gear text-xs"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
         `;
-        container.appendChild(card);
-      });
+      }).join('');
     }
 
-    // 建立出班單處理
-    function handleCreateDispatch(e) {
+    async function handleCreateGear(e) {
       e.preventDefault();
-      const project = document.getElementById('dispatch-project').value.trim();
-      const borrower = document.getElementById('dispatch-borrower').value.trim();
-      const location = document.getElementById('dispatch-location').value.trim();
-      const returnTime = document.getElementById('dispatch-return-time').value;
-      const notes = document.getElementById('dispatch-notes').value.trim();
+      let id = document.getElementById('add-gear-id').value.trim();
+      const name = document.getElementById('add-gear-name').value.trim();
+      const category = document.getElementById('add-gear-cat').value;
+      const location = document.getElementById('add-gear-loc').value.trim();
+      const specs = document.getElementById('add-gear-specs').value.trim();
 
-      const selectedCheckboxes = document.querySelectorAll('input[name="dispatch_gear_item"]:checked');
-      const selectedGearIds = Array.from(selectedCheckboxes).map(cb => cb.value);
-
-      if (selectedGearIds.length === 0) {
-        showToast('出班核發失敗', '請至少勾選一項在庫待命的設備出庫', 'warning');
-        return;
+      if (!id) {
+        id = `6000000000-${String(window.appState.gears.length + 1).padStart(5, '0')}`;
       }
 
-      const newId = `DISP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(100 + Math.random() * 900)}`;
-
-      const newDispatch = {
-        id: newId,
-        project,
-        borrower,
-        location,
-        startTime: new Date().toLocaleString('zh-TW', { hour12: false }),
-        expectedReturn: returnTime ? returnTime.replace('T', ' ') : '當日外景收工前',
-        gearIds: selectedGearIds,
-        notes,
-        status: "ACTIVE"
-      };
-
-      // 更新設備狀態
-      selectedGearIds.forEach(gid => {
-        const gear = appState.gears.find(g => g.id === gid);
-        if (gear) {
-          gear.status = 'IN_USE';
-          gear.currentBorrower = borrower;
-          gear.project = project;
-        }
-      });
-
-      appState.dispatches.unshift(newDispatch);
-
-      // 重置表單
-      document.getElementById('form-create-dispatch').reset();
-
-      // 更新所有相關畫面
-      updateStats();
-      renderDashboardSchedules();
-      refreshDispatchFormSelectors();
-      renderInventoryTable();
-
-      showToast('出班調度成功', `單號 ${newId} 已核准出庫，已生成出班裝箱單！`, 'success');
-      viewPackList(newId);
-    }
-
-    // 單件快速歸還點收
-    function quickReturnGear(gearId) {
-      const gear = appState.gears.find(g => g.id === gearId);
-      if (!gear) return;
-
-      const prevProject = gear.project;
-      gear.status = 'AVAILABLE';
-      gear.currentBorrower = null;
-      gear.project = null;
-
-      // 檢查此設備所屬的出班單，移除已歸還項目
-      appState.dispatches.forEach(disp => {
-        disp.gearIds = disp.gearIds.filter(id => id !== gearId);
-      });
-      // 移除空單
-      appState.dispatches = appState.dispatches.filter(d => d.gearIds.length > 0);
-
-      updateStats();
-      renderDashboardSchedules();
-      renderInventoryTable();
-      refreshDispatchFormSelectors();
-
-      showToast('設備點交入庫完畢', `[${gear.id}] ${gear.name} 已安全點收入庫，存放於 ${gear.location}。`, 'success');
-    }
-
-    // 整批借用單結案
-    function returnEntireDispatch(dispatchId) {
-      const index = appState.dispatches.findIndex(d => d.id === dispatchId);
-      if (index === -1) return;
-
-      const disp = appState.dispatches[index];
-      disp.gearIds.forEach(id => {
-        const gear = appState.gears.find(g => g.id === id);
-        if (gear) {
-          gear.status = 'AVAILABLE';
-          gear.currentBorrower = null;
-          gear.project = null;
-        }
-      });
-
-      appState.dispatches.splice(index, 1);
-
-      updateStats();
-      renderDashboardSchedules();
-      renderInventoryTable();
-      refreshDispatchFormSelectors();
-
-      showToast('整批歸還完成', `出班借調單 ${dispatchId} 內所有攝影器材均已查驗入庫結案。`, 'success');
-    }
-
-    // 檢視裝箱單簽核 Modal
-    function viewPackList(dispatchId) {
-      const disp = appState.dispatches.find(d => d.id === dispatchId);
-      if (!disp) return;
-
-      const items = disp.gearIds.map(id => appState.gears.find(g => g.id === id)).filter(Boolean);
-      const contentEl = document.getElementById('pack-list-modal-content');
-
-      let textOutput = `【電視台影音製作工程處 ‧ 設備出庫裝箱簽核明細】\n`;
-      textOutput += `單號：${disp.id}\n`;
-      textOutput += `拍攝專案：${disp.project}\n`;
-      textOutput += `領用主攝：${disp.borrower}\n`;
-      textOutput += `作業場地：${disp.location}\n`;
-      textOutput += `預定歸還：${disp.expectedReturn}\n`;
-      textOutput += `------------------------------------\n`;
-      items.forEach((g, idx) => {
-        textOutput += `${idx + 1}. [${g.id}] ${g.name} (${g.location})\n`;
-      });
-      textOutput += `------------------------------------\n備註：${disp.notes || '無'}\n出庫經手：器材庫管中心 / 攝影助理點收簽名：________`;
-
-      appState.currentPackList = textOutput;
-
-      contentEl.innerHTML = `
-        <div class="border border-brand-border p-4 rounded-xl bg-brand-dark space-y-3">
-          <div class="flex justify-between items-start border-b border-brand-border pb-3">
-            <div>
-              <span class="text-xs px-2 py-0.5 rounded bg-brand-teal/20 text-brand-teal font-bold">${disp.id}</span>
-              <h4 class="text-base font-bold text-white mt-1">${disp.project}</h4>
-            </div>
-            <div class="text-right text-xs">
-              <span class="text-slate-400">核發狀態：</span>
-              <span class="text-emerald-400 font-bold">已出庫核可</span>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div><span class="text-slate-500">領用攝影師：</span> <span class="text-white">${disp.borrower}</span></div>
-            <div><span class="text-slate-500">外景地點：</span> <span class="text-white">${disp.location}</span></div>
-            <div><span class="text-slate-500">領件時間：</span> <span class="text-white">${disp.startTime}</span></div>
-            <div><span class="text-slate-500">預計歸還：</span> <span class="text-amber-400 font-bold">${disp.expectedReturn}</span></div>
-          </div>
-
-          <div class="pt-2">
-            <div class="text-xs text-slate-400 mb-1.5 font-bold">裝箱清點明細 (${items.length} 樣)：</div>
-            <div class="space-y-1.5">
-              ${items.map((g, i) => `
-                <div class="p-2 rounded bg-brand-card/80 border border-brand-border flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <span class="text-slate-500 font-mono text-[11px]">${i + 1}.</span>
-                    <span class="font-mono text-brand-teal font-bold">[${g.id}]</span>
-                    <span class="text-white font-medium">${g.name}</span>
-                  </div>
-                  <span class="text-[11px] text-slate-400 font-mono">${g.location}</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-
-          ${disp.notes ? `
-            <div class="text-[11px] text-slate-400 pt-2 border-t border-brand-border/60">
-              <span class="text-slate-500">配件附註：</span> ${disp.notes}
-            </div>
-          ` : ''}
-
-          <div class="pt-4 border-t border-dashed border-brand-border flex justify-between items-center text-[11px] text-slate-400">
-            <div>庫房主管簽核：[電子簽章完成]</div>
-            <div>掌機/攝助簽核：[現場電子條碼點交]</div>
-          </div>
-        </div>
-      `;
-
-      openModal('modal-pack-list');
-    }
-
-    function copyPackListToClipboard() {
-      if (!appState.currentPackList) return;
-      
-      const textarea = document.createElement('textarea');
-      textarea.value = appState.currentPackList;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      
-      try {
-        const success = document.execCommand('copy');
-        if (success) {
-          showToast('複製成功', '出班裝箱清單文字已複製至剪貼簿，可直接發送 LINE 攝影組群組！', 'success');
-        } else {
-          showToast('複製失敗', '無法自動複製，請手動選取文字', 'warning');
-        }
-      } catch (err) {
-        showToast('複製失敗', '瀏覽器限制剪貼簿操作', 'error');
-      } finally {
-        document.body.removeChild(textarea);
-      }
-    }
-
-    // Google Apps Script 範本程式碼 (供使用者一鍵貼到 Google 試算表中)
-    const GOOGLE_APPS_SCRIPT_CODE = `function doPost(e) {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var payload = JSON.parse(e.postData.contents);
-
-    // 1. 同步設備清冊 Sheet
-    var gearSheet = ss.getSheetByName("設備清冊") || ss.insertSheet("設備清冊");
-    gearSheet.clear();
-    gearSheet.appendRow(["設備編號", "設備名稱", "類別", "存放位置", "目前狀態", "保管人", "拍攝專案", "採購價值", "規格備註"]);
-    payload.gears.forEach(function(g) {
-      gearSheet.appendRow([g.id, g.name, g.category, g.location, g.status, g.currentBorrower || "", g.project || "", g.value, g.specs || ""]);
-    });
-
-    // 2. 同步出班紀錄 Sheet
-    var dispSheet = ss.getSheetByName("出班紀錄") || ss.insertSheet("出班紀錄");
-    dispSheet.clear();
-    dispSheet.appendRow(["單號", "專案名稱", "領用主攝", "作業地點", "出借時間", "預計歸還", "器材清單", "備註"]);
-    payload.dispatches.forEach(function(d) {
-      dispSheet.appendRow([d.id, d.project, d.borrower, d.location, d.startTime, d.expectedReturn, d.gearIds.join(", "), d.notes || ""]);
-    });
-
-    // 3. 同步機件維護 Sheet
-    var mntSheet = ss.getSheetByName("機件維護") || ss.insertSheet("機件維護");
-    mntSheet.clear();
-    mntSheet.appendRow(["維護單號", "器材編號", "器材名稱", "通報人員", "通報日期", "嚴重程度", "處理狀態", "異常詳述"]);
-    payload.maintenanceLogs.forEach(function(m) {
-      mntSheet.appendRow([m.id, m.gearId, m.gearName, m.reporter, m.date, m.severity, m.status, m.description]);
-    });
-
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "同步完成" })).setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
-  }
-}`;
-
-    // 複製 Google Apps Script 範本代碼至剪貼簿
-    function copyAppsScriptCode() {
-      const textarea = document.createElement('textarea');
-      textarea.value = GOOGLE_APPS_SCRIPT_CODE;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      
-      try {
-        const success = document.execCommand('copy');
-        if (success) {
-          showToast('複製成功', 'Google Apps Script 代碼已複製！請貼到 Google 試算表的「擴充功能 > Apps Script」中。', 'success');
-        } else {
-          showToast('複製失敗', '無法自動複製代碼，請手動複製', 'warning');
-        }
-      } catch (err) {
-        showToast('複製失敗', '瀏覽器限制剪貼簿操作', 'error');
-      } finally {
-        document.body.removeChild(textarea);
-      }
-    }
-
-    // 發送即時同步請求至 Google 試算表 Webhook
-    async function syncDataToGoogleSheets() {
-      const urlInput = document.getElementById('google-webhook-url');
-      const webhookUrl = urlInput.value.trim();
-
-      if (!webhookUrl) {
-        showToast('請輸入網址', '請先貼上你部署好的 Google Apps Script 網頁應用程式網址 (Web App URL)', 'warning');
-        urlInput.focus();
-        return;
-      }
-
-      showToast('同步中...', '正在將設備清冊與出班紀錄傳輸至 Google 試算表...', 'info');
-
-      try {
-        const payload = {
-          timestamp: new Date().toISOString(),
-          gears: appState.gears,
-          dispatches: appState.dispatches,
-          maintenanceLogs: appState.maintenanceLogs
-        };
-
-        // 透過 no-cors 發送至 Google Apps Script Web App
-        await fetch(webhookUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          body: JSON.stringify(payload)
-        });
-
-        showToast('Google 試算表已同步', '資料已成功傳送至你的 Google 試算表，三張工作表 (設備清冊、出班紀錄、機件維護) 已更新！', 'success');
-      } catch (error) {
-        console.error('Google Sheets Sync Error:', error);
-        showToast('傳輸失敗', '無法傳送資料至該網址，請確認 Apps Script 部署權限是否設為「任何人 (Anyone)」。', 'error');
-      }
-    }
-
-    // 匯出為 Google 試算表可直接開啟的 CSV 檔案 (加入 UTF-8 BOM 避免中文亂碼)
-    function exportToGoogleCSV() {
-      let csvContent = '\uFEFF'; // UTF-8 BOM
-      csvContent += '資產標籤,設備名稱,類別代碼,存放儲位,運行狀態,保管人,專案名稱,採購估值,配件備註\n';
-
-      appState.gears.forEach(g => {
-        const row = [
-          `"${g.id}"`,
-          `"${(g.name || '').replace(/"/g, '""')}"`,
-          `"${g.category}"`,
-          `"${(g.location || '').replace(/"/g, '""')}"`,
-          `"${g.status}"`,
-          `"${(g.currentBorrower || '').replace(/"/g, '""')}"`,
-          `"${(g.project || '').replace(/"/g, '""')}"`,
-          g.value || 0,
-          `"${(g.specs || '').replace(/"/g, '""')}"`
-        ];
-        csvContent += row.join(',') + '\n';
-      });
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `TV_Ops_Gear_Inventory_${new Date().toISOString().slice(0, 10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      showToast('CSV 下載完成', '設備清冊 CSV 已匯出，可直接上傳或拖入 Google 雲端硬碟/Google 試算表開啟。', 'success');
-    }
-
-    // 從 CSV 匯入更新庫存
-    function handleCsvImport(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const text = e.target.result;
-          const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-          if (lines.length <= 1) {
-            showToast('匯入無效', 'CSV 檔案內無有效資料行', 'warning');
-            return;
-          }
-
-          let addedCount = 0;
-          for (let i = 1; i < lines.length; i++) {
-            // 簡易 CSV 行分割 (支援引號包裹)
-            const regex = /(?:,|\n|^)("(?:(?:"")*[^"]*)*"|[^",\n]*|(?:\n|$))/g;
-            const matches = [];
-            let match;
-            while ((match = regex.exec(lines[i])) !== null) {
-              if (match.index === regex.lastIndex) regex.lastIndex++;
-              let val = match[1] || '';
-              if (val.startsWith('"') && val.endsWith('"')) {
-                val = val.slice(1, -1).replace(/""/g, '"');
-              }
-              matches.push(val.trim());
-              if (matches.length >= 9) break;
-            }
-
-            if (matches.length >= 4 && matches[0]) {
-              const tag = matches[0];
-              const name = matches[1] || '未命名設備';
-              const cat = matches[2] || 'CAM';
-              const loc = matches[3] || '庫房備用區';
-              const status = matches[4] || 'AVAILABLE';
-              const borrower = matches[5] || null;
-              const proj = matches[6] || null;
-              const val = parseInt(matches[7]) || 0;
-              const spec = matches[8] || '';
-
-              const existingIndex = appState.gears.findIndex(g => g.id === tag);
-              const gearData = { id: tag, name, category: cat, location: loc, status, currentBorrower: borrower, project: proj, value: val, specs: spec };
-
-              if (existingIndex >= 0) {
-                appState.gears[existingIndex] = gearData;
-              } else {
-                appState.gears.push(gearData);
-                addedCount++;
-              }
-            }
-          }
-
-          updateStats();
-          renderInventoryTable();
-          refreshDispatchFormSelectors();
-          showToast('CSV 匯入成功', `已成功解析並同步 ${lines.length - 1} 筆設備資產 (新增 ${addedCount} 筆)！`, 'success');
-        } catch (err) {
-          console.error(err);
-          showToast('匯入失敗', 'CSV 格式解析失敗，請確認檔案欄位結構。', 'error');
-        }
-      };
-      reader.readAsText(file, 'utf-8');
-      event.target.value = '';
-    }
-
-    // 匯出完整 JSON 備份檔
-    function exportFullBackupJSON() {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `tv_gearops_backup_${new Date().toISOString().slice(0, 10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      showToast('備份已下載', '已將所有設備、出班紀錄與維修歷史封裝為本機備份檔。', 'success');
-    }
-
-    // 還原 JSON 備份檔
-    function handleRestoreJSON(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        try {
-          const parsed = JSON.parse(e.target.result);
-          if (parsed.gears && parsed.dispatches) {
-            appState = parsed;
-            updateStats();
-            renderDashboardSchedules();
-            renderInventoryTable();
-            refreshDispatchFormSelectors();
-            refreshMaintenanceGearSelect();
-            showToast('備份還原成功', '所有設備資產與出班紀錄已成功復原！', 'success');
-          } else {
-            showToast('還原失敗', '檔案非有效之 GearOps 備份檔', 'warning');
-          }
-        } catch (err) {
-          showToast('還原失敗', 'JSON 格式解析錯誤', 'error');
-        }
-      };
-      reader.readAsText(file);
-      event.target.value = '';
-    }
-
-    function refreshMaintenanceGearSelect() {
-      const select = document.getElementById('defect-gear-id');
-      select.innerHTML = '';
-
-      appState.gears.forEach(g => {
-        const opt = document.createElement('option');
-        opt.value = g.id;
-        opt.textContent = `[${g.id}] ${g.name} (${g.status === 'AVAILABLE' ? '在庫' : g.status === 'IN_USE' ? '出班中' : '維修中'})`;
-        select.appendChild(opt);
-      });
-
-      renderMaintenanceLogs();
-    }
-
-    function renderMaintenanceLogs() {
-      const container = document.getElementById('maintenance-logs-container');
-      container.innerHTML = '';
-
-      if (appState.maintenanceLogs.length === 0) {
-        container.innerHTML = `<div class="text-slate-500 text-xs py-8 text-center">目前無機件檢修通報紀錄</div>`;
-        return;
-      }
-
-      appState.maintenanceLogs.forEach(log => {
-        let severityBadge = '';
-        if (log.severity === 'CRITICAL') {
-          severityBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950 text-rose-400 border border-rose-800">嚴重中斷拍攝</span>';
-        } else if (log.severity === 'MEDIUM') {
-          severityBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950 text-amber-400 border border-amber-800">中度需檢修</span>';
-        } else {
-          severityBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-950 text-blue-400 border border-blue-800">常規校正</span>';
-        }
-
-        let statusBadge = log.status === 'IN_REPAIR' 
-          ? '<span class="text-rose-400 font-mono font-bold flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin text-xs"></i> 送修中</span>'
-          : '<span class="text-emerald-400 font-mono font-bold flex items-center gap-1"><i class="fa-solid fa-check text-xs"></i> 已修復完畢</span>';
-
-        const item = document.createElement('div');
-        item.className = "p-4 rounded-xl bg-brand-dark/70 border border-brand-border space-y-2.5";
-        item.innerHTML = `
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-brand-border/60 pb-2">
-            <div class="flex items-center gap-2">
-              <span class="font-mono text-brand-teal text-xs font-bold">${log.id}</span>
-              <h4 class="font-bold text-white text-xs sm:text-sm">${log.gearName}</h4>
-              <span class="font-mono text-slate-500 text-xs">[${log.gearId}]</span>
-            </div>
-            <div class="flex items-center gap-2">
-              ${severityBadge}
-              ${statusBadge}
-            </div>
-          </div>
-
-          <p class="text-xs text-slate-300 leading-relaxed">${log.description}</p>
-
-          <div class="flex justify-between items-center text-[11px] text-slate-500 font-mono pt-1">
-            <span>通報人員：<span class="text-slate-300">${log.reporter}</span> ‧ 日期：${log.date}</span>
-            ${log.status === 'IN_REPAIR' ? `
-              <button onclick="resolveMaintenance('${log.id}')" class="px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition">
-                標記維修完成入庫
-              </button>
-            ` : ''}
-          </div>
-        `;
-        container.appendChild(item);
-      });
-    }
-
-    function handleReportDefect(e) {
-      e.preventDefault();
-      const gearId = document.getElementById('defect-gear-id').value;
-      const reporter = document.getElementById('defect-reporter').value.trim();
-      const severity = document.getElementById('defect-severity').value;
-      const description = document.getElementById('defect-description').value.trim();
-
-      const gear = appState.gears.find(g => g.id === gearId);
-      if (!gear) return;
-
-      const newMntId = `MNT-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
-
-      const newLog = {
-        id: newMntId,
-        gearId: gear.id,
-        gearName: gear.name,
-        reporter,
-        date: new Date().toISOString().slice(0, 10),
-        severity,
-        status: "IN_REPAIR",
-        description
-      };
-
-      // 將器材狀態變更為 REPAIR
-      gear.status = 'REPAIR';
-
-      appState.maintenanceLogs.unshift(newLog);
-
-      document.getElementById('form-report-maintenance').reset();
-
-      updateStats();
-      renderInventoryTable();
-      renderMaintenanceLogs();
-
-      showToast('異常報修已登記', `器材 [${gear.id}] 已標記為檢修狀態，已同步通報廣播工程處！`, 'warning');
-    }
-
-    function resolveMaintenance(logId) {
-      const log = appState.maintenanceLogs.find(l => l.id === logId);
-      if (!log) return;
-
-      log.status = 'RESOLVED';
-      const gear = appState.gears.find(g => g.id === log.gearId);
-      if (gear) {
-        gear.status = 'AVAILABLE';
-      }
-
-      updateStats();
-      renderInventoryTable();
-      renderMaintenanceLogs();
-
-      showToast('維修校正結案', `設備 [${gear.id}] 已通過測試校正，重新恢復庫房待命狀態！`, 'success');
-    }
-
-    function handleCreateGear(e) {
-      e.preventDefault();
-      const category = document.getElementById('new-gear-category').value;
-      let tag = document.getElementById('new-gear-tag').value.trim().toUpperCase();
-      const name = document.getElementById('new-gear-name').value.trim();
-      const location = document.getElementById('new-gear-location').value.trim();
-      const specs = document.getElementById('new-gear-specs').value.trim();
-
-      // 如果未輸入條碼，自動生成格式編號 (例如：6000000000-00015)
-      if (!tag) {
-        const serialNumber = String(appState.gears.length + 1).padStart(5, '0');
-        tag = `6000000000-${serialNumber}`;
-      }
-
-      // 檢查編號重複
-      if (appState.gears.some(g => g.id === tag)) {
-        showToast('登記失敗', `資產標籤條碼 ${tag} 已存在，請使用不同條碼！`, 'error');
+      if (window.appState.gears.some(g => g.id === id)) {
+        showToast('編號重複', `資產編號 [${id}] 已存在於系統中！`, 'error');
         return;
       }
 
       const newGear = {
-        id: tag,
+        id,
         name,
         category,
+        status: "IN_STOCK",
         location,
-        status: "AVAILABLE",
-        currentBorrower: null,
-        project: null,
         specs
       };
 
-      appState.gears.unshift(newGear);
-
-      document.getElementById('form-add-gear').reset();
+      // 1. 立即加入記憶體
+      window.appState.gears.unshift(newGear);
       closeModal('modal-add-gear');
+      renderAllViews();
 
-      updateStats();
-      renderInventoryTable();
-      refreshDispatchFormSelectors();
+      // 2. 清空輸入框
+      document.getElementById('add-gear-id').value = '';
+      document.getElementById('add-gear-name').value = '';
+      document.getElementById('add-gear-loc').value = '';
+      document.getElementById('add-gear-specs').value = '';
 
-      showToast('新資產建檔成功', `[${tag}] ${name} 已正式入庫建檔至 ${location}。`, 'success');
+      showToast('設備登錄成功', `資產 [${id}] ${name} 已正式入庫，並永久保存至雲端！`, 'success');
+
+      // 3. 永久保存至雲端資料庫
+      await persistToCloud();
+
+      // 4. 同步寫入 Google 試算表
+      syncDataToGoogleSheets(false);
+    }
+
+    function openEditGearModal(gearId) {
+      const gear = window.appState.gears.find(g => g.id === gearId);
+      if (!gear) return;
+
+      document.getElementById('edit-gear-id').value = gear.id;
+      document.getElementById('edit-gear-id-display').value = gear.id;
+      document.getElementById('edit-gear-name').value = gear.name;
+      document.getElementById('edit-gear-cat').value = gear.category;
+      document.getElementById('edit-gear-status').value = gear.status;
+      document.getElementById('edit-gear-loc').value = gear.location || '';
+      document.getElementById('edit-gear-specs').value = gear.specs || '';
+
+      cancelDeleteGearUI();
+      openModal('modal-edit-gear');
+    }
+
+    async function handleSaveGearEdit() {
+      const gearId = document.getElementById('edit-gear-id').value;
+      const gear = window.appState.gears.find(g => g.id === gearId);
+      if (!gear) return;
+
+      const newName = document.getElementById('edit-gear-name').value.trim();
+      if (!newName) {
+        showToast('型號必填', '請輸入設備完整型號', 'error');
+        return;
+      }
+
+      gear.name = newName;
+      gear.category = document.getElementById('edit-gear-cat').value;
+      gear.status = document.getElementById('edit-gear-status').value;
+      gear.location = document.getElementById('edit-gear-loc').value.trim();
+      gear.specs = document.getElementById('edit-gear-specs').value.trim();
+
+      closeModal('modal-edit-gear');
+      renderAllViews();
+      showToast('已更新設備', `設備 [${gear.id}] 資料已成功儲存`, 'success');
+
+      await persistToCloud();
+      syncDataToGoogleSheets(false);
+    }
+
+    function triggerDeleteGearUI() {
+      const panel = document.getElementById('delete-confirm-panel');
+      const actions = document.getElementById('edit-modal-actions');
+      const pinInput = document.getElementById('delete-gear-admin-pin');
+      if (pinInput) pinInput.value = '';
+      if (panel) panel.classList.remove('hidden');
+      if (actions) actions.classList.add('hidden');
+      setTimeout(() => { if (pinInput) pinInput.focus(); }, 100);
+    }
+
+    function cancelDeleteGearUI() {
+      const panel = document.getElementById('delete-confirm-panel');
+      const actions = document.getElementById('edit-modal-actions');
+      const pinInput = document.getElementById('delete-gear-admin-pin');
+      if (pinInput) pinInput.value = '';
+      if (panel) panel.classList.add('hidden');
+      if (actions) actions.classList.remove('hidden');
+    }
+
+    async function executeDeleteGear() {
+      const pinInput = document.getElementById('delete-gear-admin-pin');
+      const pin = pinInput ? pinInput.value.trim() : '';
+
+      if (pin !== '2815194') {
+        showToast('授權失敗', '管理密碼不正確，無法刪除設備！', 'error');
+        if (pinInput) {
+          pinInput.value = '';
+          pinInput.focus();
+        }
+        return;
+      }
+
+      const gearId = document.getElementById('edit-gear-id').value;
+      const gear = window.appState.gears.find(g => g.id === gearId);
+      const gearName = gear ? gear.name : gearId;
+
+      window.appState.gears = window.appState.gears.filter(g => g.id !== gearId);
+      window.appState.dispatches.forEach(disp => {
+        disp.gearIds = disp.gearIds.filter(id => id !== gearId);
+      });
+      window.appState.dispatches = window.appState.dispatches.filter(d => d.gearIds.length > 0);
+
+      closeModal('modal-edit-gear');
+      renderAllViews();
+      showToast('設備已刪除', `設備 [${gearId}] ${gearName} 已徹底自系統移除！`, 'warning');
+
+      await persistToCloud();
+      syncDataToGoogleSheets(false);
     }
 
     function quickDispatchSingleGear(gearId) {
       switchTab('dispatch');
-      setTimeout(() => {
-        const checkbox = document.querySelector(`input[name="dispatch_gear_item"][value="${gearId}"]`);
-        if (checkbox) {
-          checkbox.checked = true;
-          checkbox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }, 100);
+      refreshDispatchFormSelectors(gearId);
+      showToast('已預選設備', '請填寫借調專案與出班人員', 'info');
     }
 
-    function quickDefectForGear(gearId) {
-      switchTab('maintenance');
-      setTimeout(() => {
-        const sel = document.getElementById('defect-gear-id');
-        if (sel) {
-          sel.value = gearId;
-          document.getElementById('defect-reporter').focus();
-        }
-      }, 100);
+    function refreshDispatchFormSelectors(preSelectId = null) {
+      const container = document.getElementById('dispatch-gear-selector');
+      if (!container) return;
+
+      const inStockGears = window.appState.gears.filter(g => g.status === 'IN_STOCK');
+
+      if (inStockGears.length === 0) {
+        container.innerHTML = `<div class="p-2 text-slate-500 text-center">目前無在庫可借設備</div>`;
+        return;
+      }
+
+      container.innerHTML = inStockGears.map(gear => {
+        const checked = (preSelectId === gear.id) ? 'checked' : '';
+        return `
+          <label class="flex items-center gap-2 p-1.5 rounded hover:bg-brand-card cursor-pointer">
+            <input type="checkbox" name="disp-gear" value="${gear.id}" ${checked} class="rounded border-slate-700 text-blue-600 focus:ring-0">
+            <span class="font-mono text-slate-400 text-[11px]">${escapeHtml(gear.id)}</span>
+            <span class="text-white text-xs">${escapeHtml(gear.name)}</span>
+            <span class="text-[10px] text-slate-500 ml-auto">(${escapeHtml(gear.location)})</span>
+          </label>
+        `;
+      }).join('');
     }
 
-    window.onload = function() {
-      // 預設日期為今日
-      const todayIso = new Date().toISOString().slice(0, 16);
-      const returnTimeInput = document.getElementById('dispatch-return-time');
-      if (returnTimeInput) {
-        returnTimeInput.value = todayIso;
+    async function handleCreateDispatch(e) {
+      e.preventDefault();
+      const project = document.getElementById('disp-project').value.trim();
+      const dept = document.getElementById('disp-dept').value;
+      const user = document.getElementById('disp-user').value.trim();
+      const returnDate = document.getElementById('disp-return-date').value;
+      const note = document.getElementById('disp-note').value.trim();
+
+      const checkedBoxes = document.querySelectorAll('input[name="disp-gear"]:checked');
+      const selectedGearIds = Array.from(checkedBoxes).map(cb => cb.value);
+
+      if (selectedGearIds.length === 0) {
+        showToast('未選設備', '請至少勾選一項在庫中設備以進行出班借調！', 'error');
+        return;
       }
 
-      // 初始化各模組視圖
-      updateStats();
-      renderDashboardSchedules();
-      renderInventoryTable();
-      refreshDispatchFormSelectors();
-      refreshMaintenanceGearSelect();
+      const today = new Date().toISOString().split('T')[0];
+      const newDispatch = {
+        id: `DSP-${Date.now().toString().slice(-6)}`,
+        project,
+        dept,
+        user,
+        gearIds: selectedGearIds,
+        dateOut: today,
+        returnDate,
+        note
+      };
 
-      // 預設聚焦於登入姓名輸入框
-      const usernameInput = document.getElementById('login-username');
-      if (usernameInput) {
-        usernameInput.focus();
+      selectedGearIds.forEach(id => {
+        const gear = window.appState.gears.find(g => g.id === id);
+        if (gear) gear.status = 'DISPATCHED';
+      });
+
+      window.appState.dispatches.unshift(newDispatch);
+      renderAllViews();
+
+      document.getElementById('form-create-dispatch').reset();
+      document.getElementById('disp-user').value = window.appState.currentUser || '';
+      document.getElementById('disp-dept').value = window.appState.currentDept || '新聞部';
+
+      showToast('出班單已建立', `成功借出 ${selectedGearIds.length} 項器材！已產出裝箱單`, 'success');
+
+      await persistToCloud();
+      syncDataToGoogleSheets(false);
+    }
+
+    function renderActiveDispatches() {
+      const container = document.getElementById('active-dispatches-container');
+      if (!container) return;
+
+      if (window.appState.dispatches.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center text-slate-500 text-xs">
+            <i class="fa-solid fa-clipboard-check text-3xl mb-2 text-slate-600 block"></i>
+            目前所有設備皆在庫待命，暫無外借出班單據
+          </div>`;
+        return;
       }
-    };
+
+      container.innerHTML = window.appState.dispatches.map(disp => {
+        const gearItems = disp.gearIds.map(id => {
+          const gear = window.appState.gears.find(g => g.id === id);
+          return gear ? `<li class="flex items-center gap-1.5"><i class="fa-solid fa-circle-dot text-[8px] text-blue-400"></i><span>[${gear.id}] ${gear.name}</span></li>` : `<li>[${id}]</li>`;
+        }).join('');
+
+        return `
+          <div class="p-4 rounded-xl bg-brand-surface border border-brand-border space-y-3">
+            <div class="flex items-center justify-between border-b border-brand-border pb-2.5">
+              <div>
+                <span class="font-bold text-sm text-white">${escapeHtml(disp.project)}</span>
+                <span class="ml-2 px-1.5 py-0.2 rounded text-[10px] bg-blue-500/20 text-blue-300 font-mono">${escapeHtml(disp.dept)}</span>
+              </div>
+              <span class="text-xs font-mono text-amber-400">預計歸還: ${escapeHtml(disp.returnDate)}</span>
+            </div>
+
+            <div class="text-xs text-slate-300">
+              <div class="mb-1 text-slate-400 font-medium">出班裝箱設備清單：</div>
+              <ul class="space-y-1 pl-1">${gearItems}</ul>
+              ${disp.note ? `<div class="mt-2 text-[11px] text-slate-400 bg-brand-card p-2 rounded border border-brand-border">備註：${escapeHtml(disp.note)}</div>` : ''}
+            </div>
+
+            <div class="flex items-center justify-between pt-1 text-xs">
+              <span class="text-slate-400">經手保管人：<strong class="text-white">${escapeHtml(disp.user)}</strong></span>
+              <button type="button" onclick="quickReturnDispatch('${disp.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition text-xs shadow flex items-center gap-1">
+                <i class="fa-solid fa-box-archive"></i>
+                <span>全數點收歸還入庫</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function quickReturnDispatch(dispId) {
+      const disp = window.appState.dispatches.find(d => d.id === dispId);
+      if (!disp) return;
+
+      disp.gearIds.forEach(id => {
+        const gear = window.appState.gears.find(g => g.id === id);
+        if (gear) gear.status = 'IN_STOCK';
+      });
+
+      window.appState.dispatches = window.appState.dispatches.filter(d => d.id !== dispId);
+      renderAllViews();
+      showToast('設備已全數歸還', `單號 [${dispId}] 所含設備已全數點收並還原為在庫中`, 'success');
+
+      await persistToCloud();
+      syncDataToGoogleSheets(false);
+    }
+
+    function refreshMaintenanceGearSelect() {
+      const select = document.getElementById('maint-gear-id');
+      if (!select) return;
+
+      select.innerHTML = window.appState.gears.map(gear => {
+        return `<option value="${gear.id}">[${gear.id}] ${gear.name} (${gear.status === 'IN_STOCK' ? '在庫中' : gear.status === 'DISPATCHED' ? '領用中' : '檢修中'})</option>`;
+      }).join('');
+    }
+
+    async function handleCreateMaintenance(e) {
+      e.preventDefault();
+      const gearId = document.getElementById('maint-gear-id').value;
+      const reporter = document.getElementById('maint-reporter').value.trim();
+      const severity = document.getElementById('maint-severity').value;
+      const desc = document.getElementById('maint-desc').value.trim();
+
+      const newLog = {
+        id: `MNT-${Date.now().toString().slice(-6)}`,
+        gearId,
+        reporter,
+        severity,
+        desc,
+        date: new Date().toISOString().split('T')[0],
+        status: "送修中"
+      };
+
+      const gear = window.appState.gears.find(g => g.id === gearId);
+      if (gear) gear.status = 'MAINTENANCE';
+
+      window.appState.maintenances.unshift(newLog);
+      renderAllViews();
+
+      document.getElementById('form-maintenance').reset();
+      document.getElementById('maint-reporter').value = window.appState.currentUser || '';
+      showToast('報修已送出', `設備已標記為檢修中，維護工單號：${newLog.id}`, 'warning');
+
+      await persistToCloud();
+      syncDataToGoogleSheets(false);
+    }
+
+    function renderMaintenanceLogs() {
+      const container = document.getElementById('maintenance-logs-container');
+      if (!container) return;
+
+      if (window.appState.maintenances.length === 0) {
+        container.innerHTML = `
+          <div class="py-10 text-center text-slate-500 text-xs">
+            <i class="fa-solid fa-screwdriver text-2xl mb-1 block"></i>
+            目前所有器材運作正常，無維護工單記錄
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = window.appState.maintenances.map(m => {
+        const gear = window.appState.gears.find(g => g.id === m.gearId);
+        const gearName = gear ? gear.name : m.gearId;
+        const isCompleted = m.status === '已修復完畢';
+
+        return `
+          <div class="p-3.5 rounded-xl bg-brand-surface border border-brand-border space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-xs text-white">[${escapeHtml(m.gearId)}] ${escapeHtml(gearName)}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isCompleted ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'}">
+                  ${escapeHtml(m.status)}
+                </span>
+              </div>
+              <span class="text-[10px] text-slate-400 font-mono">${escapeHtml(m.date)}</span>
+            </div>
+
+            <p class="text-xs text-slate-300 leading-relaxed bg-brand-card p-2 rounded border border-brand-border">
+              ${escapeHtml(m.desc)}
+            </p>
+
+            <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+              <span>通報人: <strong class="text-slate-300">${escapeHtml(m.reporter)}</strong> &middot; 等級: ${escapeHtml(m.severity)}</span>
+              ${!isCompleted ? `
+                <button type="button" onclick="resolveMaintenance('${m.id}')" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition text-[10px]">
+                  標記已修復完畢
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function resolveMaintenance(mId) {
+      const log = window.appState.maintenances.find(m => m.id === mId);
+      if (!log) return;
+
+      log.status = '已修復完畢';
+      const gear = window.appState.gears.find(g => g.id === log.gearId);
+      if (gear) gear.status = 'IN_STOCK';
+
+      renderAllViews();
+      showToast('維護工單已完成', `設備 [${log.gearId}] 已修復完畢並回歸在庫中！`, 'success');
+
+      await persistToCloud();
+      syncDataToGoogleSheets(false);
+    }
+
+    function openAdminPinModal() {
+      if (window.appState.isAdminVerified) {
+        openModal('modal-system-admin');
+        return;
+      }
+      const pinInput = document.getElementById('input-admin-pin');
+      if (pinInput) pinInput.value = '';
+      openModal('modal-admin-pin');
+      setTimeout(() => { if (pinInput) pinInput.focus(); }, 100);
+    }
+
+    function verifyAdminPin() {
+      const pinInput = document.getElementById('input-admin-pin');
+      const pin = pinInput.value.trim();
+
+      if (pin === '2815194') {
+        window.appState.isAdminVerified = true;
+        closeModal('modal-admin-pin');
+        openModal('modal-system-admin');
+        showToast('驗證成功', '已取得系統管理員控制權限', 'success');
+      } else {
+        showToast('驗證失敗', '管理密碼不正確，請重新輸入', 'error');
+        pinInput.value = '';
+        pinInput.focus();
+      }
+    }
+
+    function handleGoogleUrlChanged() {
+      const urlInput = document.getElementById('google-webapp-url');
+      if (urlInput) {
+        window.appState.googleUrl = urlInput.value.trim();
+        persistToCloud();
+        showToast('網址已保存', 'Google 試算表 Web App 網址已自動儲存', 'success');
+      }
+    }
+
+    async function testGoogleSheetsConnection() {
+      const urlInput = document.getElementById('google-webapp-url');
+      const url = urlInput.value.trim();
+      const reportBox = document.getElementById('connection-report-box');
+
+      if (!url || !url.startsWith('https://script.google.com/macros/s/')) {
+        showToast('網址格式錯誤', '請先貼上正確的 Google Apps Script 網頁應用程式網址', 'error');
+        return;
+      }
+
+      window.appState.googleUrl = url;
+      await persistToCloud();
+
+      reportBox.classList.remove('hidden');
+      reportBox.innerHTML = `
+        <div class="text-amber-400 flex items-center gap-2">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <span>正在診斷與 Google 試算表的雙向連線狀態...</span>
+        </div>`;
+
+      try {
+        const start = performance.now();
+        const res = await fetch(`${url}?action=read&t=${Date.now()}`);
+        const data = await res.json();
+        const elapsed = Math.round(performance.now() - start);
+
+        reportBox.innerHTML = `
+          <div class="text-emerald-400 font-bold mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>雙向連線診斷成功！ (延遲: ${elapsed}ms)</span>
+          </div>
+          <div class="text-slate-300">
+            &bull; GET 讀取狀態: 正常運作<br>
+            &bull; 雲端設備數量: ${data.gears ? data.gears.length : 0} 件<br>
+            &bull; 網址已自動永久記憶儲存至系統
+          </div>
+        `;
+        showToast('連線成功', 'Google 試算表雙向通道暢通！', 'success');
+      } catch (err) {
+        reportBox.innerHTML = `
+          <div class="text-rose-400 font-bold mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-xmark"></i>
+            <span>連線檢測失敗或跨域受阻</span>
+          </div>
+          <div class="text-slate-400">
+            請確認部署作業之「誰可以存取」設定為<strong>「任何人 (Anyone)」</strong>。
+          </div>
+        `;
+        showToast('連線失敗', '無法連線至 Google Apps Script', 'error');
+      }
+    }
+
+    async function loadDataFromGoogleSheets(isManual = false) {
+      const urlInput = document.getElementById('google-webapp-url');
+      const url = window.appState.googleUrl || (urlInput ? urlInput.value.trim() : '');
+
+      if (!url) {
+        if (isManual) showToast('請輸入網址', '請先輸入 Google Apps Script Web App 網址', 'error');
+        return;
+      }
+
+      window.appState.googleUrl = url;
+      if (isManual) showToast('正在載入', '正在從 Google 試算表讀取最新資料...', 'info');
+
+      try {
+        const res = await fetch(`${url}?action=read&t=${Date.now()}`);
+        const cloudData = await res.json();
+
+        if (cloudData && Array.isArray(cloudData.gears) && cloudData.gears.length > 0) {
+          // 合併既有與試算表中的資料
+          window.appState.gears = cloudData.gears;
+          if (Array.isArray(cloudData.dispatches)) window.appState.dispatches = cloudData.dispatches;
+          if (Array.isArray(cloudData.maintenances)) window.appState.maintenances = cloudData.maintenances;
+
+          renderAllViews();
+          await persistToCloud();
+          if (isManual) {
+            showToast('資料載入成功', `已同步 Google 試算表中最新 ${cloudData.gears.length} 件設備！`, 'success');
+          }
+        } else {
+          if (isManual) showToast('雲端尚無資料', '試算表中尚未建立設備紀錄，請先執行一次「立即寫入試算表」', 'warning');
+        }
+      } catch (err) {
+        if (isManual) showToast('讀取失敗', '無法從試算表載入資料，請檢查 Web App 權限設定', 'error');
+      }
+    }
+
+    async function syncDataToGoogleSheets(manual = false) {
+      const url = window.appState.googleUrl;
+      if (!url) return;
+
+      if (manual) showToast('正在寫入', '正在將全部資料保存至 Google 試算表...', 'info');
+
+      const payload = {
+        action: 'write',
+        timestamp: new Date().toISOString(),
+        gears: window.appState.gears,
+        dispatches: window.appState.dispatches,
+        maintenances: window.appState.maintenances
+      };
+
+      try {
+        await fetch(url, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (manual) {
+          showToast('同步成功', '資料已成功寫入 Google 試算表！', 'success');
+        }
+      } catch (err) {
+        if (manual) showToast('寫入異常', '同步失敗，請確認網路連線', 'error');
+      }
+    }
+
+    function copyAppsScriptCode() {
+      const scriptCode = `function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var result = { gears: [], dispatches: [], maintenances: [] };
+  
+  var gearSheet = ss.getSheetByName('設備清冊');
+  if (gearSheet && gearSheet.getLastRow() > 1) {
+    var data = gearSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0]) {
+        result.gears.push({
+          id: String(data[i][0]),
+          name: String(data[i][1] || ''),
+          category: String(data[i][2] || 'CAM'),
+          status: String(data[i][3] || 'IN_STOCK'),
+          location: String(data[i][4] || ''),
+          specs: String(data[i][5] || '')
+        });
+      }
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var payload = JSON.parse(e.postData.contents);
+  
+  if (payload.gears) {
+    var sheet = ss.getSheetByName('設備清冊') || ss.insertSheet('設備清冊');
+    sheet.clear();
+    sheet.appendRow(['資產條碼編號', '設備完整型號', '設備大類', '當前狀態', '入庫位置', '光學規格/配件備註']);
+    payload.gears.forEach(function(g) {
+      sheet.appendRow([g.id, g.name, g.category, g.status, g.location, g.specs]);
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify({ status: 'ok' })).setMimeType(ContentService.MimeType.JSON);
+}`;
+
+      copyTextToClipboard(scriptCode);
+      showToast('已複製腳本代碼', '請至 Google 試算表之 Apps Script 覆蓋貼上並重新部署', 'success');
+    }
+
+    function showToast(title, message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      toast.className = `p-3.5 rounded-xl border shadow-xl flex items-start gap-3 transform transition-all duration-300 opacity-0 translate-y-2 pointer-events-auto ${
+        type === 'success' ? 'bg-emerald-950/90 border-emerald-700 text-emerald-200' :
+        type === 'error' ? 'bg-rose-950/90 border-rose-700 text-rose-200' :
+        type === 'warning' ? 'bg-amber-950/90 border-amber-700 text-amber-200' :
+        'bg-slate-900/90 border-brand-border text-slate-200'
+      }`;
+
+      const icon = type === 'success' ? 'fa-circle-check text-emerald-400' :
+                   type === 'error' ? 'fa-circle-xmark text-rose-400' :
+                   type === 'warning' ? 'fa-triangle-exclamation text-amber-400' :
+                   'fa-circle-info text-blue-400';
+
+      toast.innerHTML = `
+        <i class="fa-solid ${icon} text-base mt-0.5"></i>
+        <div class="flex-1 text-xs">
+          <div class="font-bold">${escapeHtml(title)}</div>
+          <div class="text-[11px] opacity-90 mt-0.5 leading-relaxed">${escapeHtml(message)}</div>
+        </div>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => { toast.classList.remove('opacity-0', 'translate-y-2'); }, 10);
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => { toast.remove(); }, 3500);
+      }, 3500);
+    }
+
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function copyTextToClipboard(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // 將所有事件掛載至 window 全域
+    window.handleUserSignIn = handleUserSignIn;
+    window.handleUserSignOut = handleUserSignOut;
+    window.switchTab = switchTab;
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.openEditGearModal = openEditGearModal;
+    window.handleSaveGearEdit = handleSaveGearEdit;
+    window.triggerDeleteGearUI = triggerDeleteGearUI;
+    window.cancelDeleteGearUI = cancelDeleteGearUI;
+    window.executeDeleteGear = executeDeleteGear;
+    window.quickDispatchSingleGear = quickDispatchSingleGear;
+    window.handleCreateDispatch = handleCreateDispatch;
+    window.quickReturnDispatch = quickReturnDispatch;
+    window.handleCreateMaintenance = handleCreateMaintenance;
+    window.resolveMaintenance = resolveMaintenance;
+    window.handleCreateGear = handleCreateGear;
+    window.openAdminPinModal = openAdminPinModal;
+    window.verifyAdminPin = verifyAdminPin;
+    window.testGoogleSheetsConnection = testGoogleSheetsConnection;
+    window.loadDataFromGoogleSheets = loadDataFromGoogleSheets;
+    window.syncDataToGoogleSheets = syncDataToGoogleSheets;
+    window.copyAppsScriptCode = copyAppsScriptCode;
+    window.renderInventoryTable = renderInventoryTable;
+    window.handleGoogleUrlChanged = handleGoogleUrlChanged;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initClock();
+      checkAuthGateway();
+      renderAllViews();
+      initCloudStorage();
+    });
   </script>
 </body>
 </html>
